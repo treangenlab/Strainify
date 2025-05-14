@@ -2,6 +2,7 @@ import subprocess
 import os
 from collections import defaultdict
 import re
+import argparse
 
 
 def process_maf_file(filename):
@@ -26,7 +27,7 @@ def process_maf_file(filename):
     return ordered_pairs
 
 
-def execute_wgatools_bcftools(pairs):
+def execute_wgatools_bcftools(pairs, maf_filename):
     sample_vcf_files = defaultdict(list)
 
     # Process each sample-contig pair
@@ -34,7 +35,7 @@ def execute_wgatools_bcftools(pairs):
         vcf_filename = f"{sample_name}_{contig_name}.vcf"
         query_name = f"{sample_name}#{contig_name}"
         command = [
-            "/Users/Rossie/Downloads/wgatools/target/release/wgatools", "call", "parsnp.maf", "-s", "-l0",
+            "wgatools", "call", maf_filename, "-s", "-l0",
             "--sample", sample_name,
             "--query-name", query_name
         ]
@@ -136,12 +137,21 @@ def modify_vcf(vcf_filename):
 
     print(f"Modified VCF file: {vcf_filename} (Replaced 0/0 with 0, x|x with 1)")
 
-# Example usage
-filename = "./parsnp.maf"  # Replace with your actual file name
-result = process_maf_file(filename)
+def main():
+    parser = argparse.ArgumentParser(description="Process a MAF file to generate a merged VCF.")
+    parser.add_argument("--maf_file", help="Path to the input MAF file")
 
-if result:
-    final_vcf = execute_wgatools_bcftools(result)
-    modify_vcf(final_vcf)
-    if final_vcf:
-        print(f"Final output VCF: {final_vcf}")
+    args = parser.parse_args()
+    maf_filename = args.maf_file
+
+    result = process_maf_file(maf_filename)
+
+    if result:
+        final_vcf = execute_wgatools_bcftools(result,maf_filename)
+        if final_vcf:
+            modify_vcf(final_vcf)
+            print(f"Final output VCF: {final_vcf}")
+
+
+if __name__ == "__main__":
+    main()
