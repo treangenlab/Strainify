@@ -60,11 +60,12 @@ def vcf_to_dataframe(vcf_file):
 
 # Input values
 maf_file = "W0008_as_ref.maf"
-reference_strain = "W0008"
+#reference_strain = "W0008"
 
 # Step 1: Extract core genome intervals from reference in MAF
 core_intervals = []
 for multiple_alignment in AlignIO.parse(maf_file, "maf"):
+    reference_strain = multiple_alignment[0].id.split('#')[0]
     for record in multiple_alignment:
         if reference_strain in record.id:
             start = record.annotations["start"]
@@ -82,7 +83,7 @@ print(f"Average core genome interval size: {avg_interval_size}")
 # Define overlapping window size and step size
 #window_size = avg_interval_size
 window_size = 500
-step_size = int(window_size*1.00)  # percentage overlap
+step_size = int(window_size*1.00)  # percentage overlap = 1 - step_size
 
 # Create overlapping windows
 windows = create_overlapping_windows(core_intervals, window_size, step_size)
@@ -128,7 +129,7 @@ for positions in windows:
 
 # Save enriched windows
 filtered_df = pd.DataFrame(significant_windows)
-filtered_df.to_csv("significantly_enriched_windows_500bp_no_overlap.tsv", sep='\t', index=False)
+filtered_df.to_csv("significantly_enriched_windows.tsv", sep='\t', index=False)
 
 # Filter out variants in enriched windows
 positions_to_exclude = set()
@@ -141,65 +142,17 @@ df_AF = variant_df_no_dup.drop(index=positions_to_exclude)
 df_AF = df_AF[df_AF['ALT'].apply(lambda x: len(set(x.split(','))) == 1)]
 df_AF.reset_index(drop=True, inplace=True)
 print(df_AF)
-#df_AF = df_AF.iloc[:, list(range(0, 5)) + list(range(9, variant_df.shape[1]))]
+
 df_AF.to_csv("filtered_variant_matrix.csv", index=False)
 df_allele_freq = df_AF.drop(columns=['CHROM','ID','REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT'])
 strain_count = len(df_allele_freq.columns[1:])
 strains = df_allele_freq.columns
 
-
-allele_lists = df_AF.iloc[:, list(range(5, df_AF.shape[1]))].values.tolist()
-'''
-# Calculate allele frequencies
-allele_freq_list = []
-strain_count = len(allele_lists[0])
-for allele_list in allele_lists:
-    allele_freqs = []
-    for i in allele_list:
-        AF = int(i)
-        allele_freqs.append(AF)
-    allele_freq_list.append(allele_freqs)
-
-AF_table_header = df_AF['POS'].values.tolist()
-df_allele_freq = pd.DataFrame(allele_freq_list).T
-
-df_allele_freq.columns = AF_table_header
-df_allele_freq = df_allele_freq.T
-positions = df_AF['POS'].tolist()
-print(len(positions))
-# positions.reset_index(drop=True, inplace=True)
-print(df_allele_freq.shape)
-df_allele_freq.insert(0, 'position', positions)
-strains = list(df_AF.columns[5:])
-strains.insert(0, 'position')
-print(strains)
-df_allele_freq.columns = strains
-
-
-# df_allele_freq.to_csv("allele_freq_all.csv", index=False)
-
-def find_similar_columns(df, threshold=5):
-    similar_columns = []
-    for i in range(df.shape[1]):
-        for j in range(i + 1, df.shape[1]):
-            diff_count = (df.iloc[:, i] != df.iloc[:, j]).sum()
-            if diff_count < threshold:
-                print(
-                    f"Columns {df.columns[i]} and {df.columns[j]} have {diff_count} differences (less than {threshold})")
-                similar_columns.append((df.columns[i], df.columns[j], int(diff_count)))
-
-    return similar_columns
-
-
-# Find similar columns
-similar_columns = find_similar_columns(df_allele_freq)
-print(f"these are similar columns: {similar_columns}")
-'''
-# Create sites for bam-readcounts to count allele frequencies in aligned reads (BAM file)
+# Create sites to count allele frequencies in aligned reads (BAM file)
 df_sites = df_AF.iloc[:, list(range(0, 2))]
 
-# df_sites.to_csv('sites_merged.txt', sep='\t', index=False, header=None)
-
+df_sites.to_csv('sites.txt', sep='\t', index=False, header=None)
+'''
 import os
 import cvxpy
 import numpy as np
@@ -290,10 +243,6 @@ for file_name in os.listdir(folder_path):
 
         eps = np.nextafter(0, 1)  # smallest positive float
         ps += eps  # avoid Log(0)
-        # lambda_reg = 0.1  # Regularization parameter
-        # nllh = (-1) * cvxpy.sum(
-        # (cvxpy.multiply(b, cvxpy.log(ps))) + cvxpy.multiply(c, cvxpy.log(1 - ps))) + lambda_reg * cvxpy.norm(x,
-        # "fro")
         nllh = (-1) * cvxpy.sum((cvxpy.multiply(b, cvxpy.log(ps))) + cvxpy.multiply(c, cvxpy.log(1 - ps)))
 
         objective = cvxpy.Minimize(nllh)
@@ -319,7 +268,6 @@ for file_name in os.listdir(folder_path):
         rounded_arr = np.array([np.round(a * 100, 4) for a in x.value])
 
         # Assuming `strains` is available as a global list or define it as needed
-        #strain_names = pd.DataFrame(strains[1:])  # Adjust this if `strains` is a list
         strains = strains[1:]
         strain_names = pd.DataFrame(strains, columns=['strain name'])
         df_results = pd.DataFrame(rounded_arr)
@@ -338,3 +286,4 @@ for file_name in os.listdir(folder_path):
 combined_results.to_csv('W0008_w_recomb_filter_500bp.csv', index=False)
 print(combined_results)
 
+'''
