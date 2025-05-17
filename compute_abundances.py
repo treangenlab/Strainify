@@ -78,12 +78,12 @@ if result is not None:
     df_results = pd.DataFrame(rounded_arr)
     df_results = pd.concat([strain_names, df_results], axis=1)
 
-    sample_id = os.path.basename(read_counts_file).replace(".tsv", "")
+    sample_id = os.path.basename(read_counts_file).replace("_read_counts.tsv", "")
     df_results.columns = ['strain name', sample_id]
     #df_results['strain name'] = df_results['strain name'].str.replace('.fna', '', regex=False)
     df_results['strain name'] = df_results['strain name'].str.replace(r'\.fna$|\.fasta$', '', regex=True)
-
-    df_results.to_csv("abundance_estimates.csv", index=False)
+    output_name = sample_id + '_abundance_estimates.csv'
+    df_results.to_csv(output_name, index=False)
     print(df_results)
 else:
     print("Optimization failed; no output saved.")

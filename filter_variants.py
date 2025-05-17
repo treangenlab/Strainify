@@ -1,4 +1,6 @@
 import argparse
+import os.path
+
 from Bio import AlignIO
 import pandas as pd
 from scipy.stats import chi2
@@ -48,7 +50,7 @@ def vcf_to_dataframe(vcf_file):
         df['ALT'] = df.apply(lambda x: f"+{x['ALT'][1:]}" if 'SVTYPE=INS' in str(x['INFO']) else x['ALT'], axis=1)
         df['REF'] = df.apply(lambda x: x['REF'][1] if 'SVTYPE=DEL' in str(x['INFO']) else x['REF'], axis=1)
         df = df[df['ALT'] != '<INV>']
-        df['CHROM'] = df['CHROM'].apply(lambda x: x.split("#")[0])
+        df['CHROM'] = df['CHROM'].apply(lambda x: x.split("#")[-1])
         df.reset_index(drop=True, inplace=True)
     return df
 
@@ -56,6 +58,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect and remove variant-dense regions from a MAF and VCF input.")
     parser.add_argument('--maf', required=True, help="MAF file from multiple alignment")
     parser.add_argument('--vcf', required=True, help="VCF file with variants")
+    parser.add_argument('--output_dir', required=True, help="output directory name")
     parser.add_argument('--window_size', default="500", help="Window size (positive integer) or 'average_LCB_length'")
     parser.add_argument('--window_overlap', type=float, default=0.0, help="Window overlap as a float in [0, 1)")
 
@@ -63,6 +66,7 @@ if __name__ == "__main__":
 
     maf_file = args.maf
     vcf_file = args.vcf
+    output_dir = args.output_dir
 
     if args.window_size == "average_LCB_length":
         window_size = None
@@ -135,7 +139,7 @@ if __name__ == "__main__":
             })
 
     filtered_df = pd.DataFrame(significant_windows)
-    filtered_df.to_csv("significantly_enriched_windows.tsv", sep='\t', index=False)
+    filtered_df.to_csv(os.path.join(output_dir, "significantly_enriched_windows.tsv"), sep='\t', index=False)
 
     positions_to_exclude = set()
     for win in significant_windows:
@@ -146,11 +150,11 @@ if __name__ == "__main__":
     df_AF = variant_df_no_dup.drop(index=positions_to_exclude)
     df_AF = df_AF[df_AF['ALT'].apply(lambda x: len(set(x.split(','))) == 1)]
     df_AF.reset_index(drop=True, inplace=True)
-    df_AF.to_csv("filtered_variant_matrix.csv", index=False)
+    df_AF.to_csv(os.path.join(output_dir, "filtered_variant_matrix.csv"), index=False)
 
     #df_allele_freq = df_AF.drop(columns=['CHROM','ID','REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT'])
     df_sites = df_AF.iloc[:, list(range(0, 2))]
-    df_sites.to_csv('sites.txt', sep='\t', index=False, header=None)
+    df_sites.to_csv(os.path.join(output_dir, 'sites.txt'), sep='\t', index=False, header=None)
 
     print("Finished filtering variants. Output files:")
     print("- significantly_enriched_windows.tsv")

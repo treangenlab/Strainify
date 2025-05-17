@@ -1,0 +1,5 @@
+genome_folder: /home/Users/rl152/RL_fastas
+output_dir: results
+fastq_folder: /home/Users/rl152/strain_phasing/simulated_data/20x
+
+

@@ -3,6 +3,7 @@ import os
 from collections import defaultdict
 import re
 import argparse
+import sys
 
 
 def process_maf_file(filename):
@@ -44,9 +45,9 @@ def execute_wgatools_bcftools(pairs, maf_filename):
 
         if os.path.exists(vcf_filename) and os.path.getsize(vcf_filename) > 0:  # Ensure file exists and is not empty
             sample_vcf_files[sample_name].append(vcf_filename)
-            print(f"VCF file stored: {vcf_filename}")
+            #print(f"VCF file stored: {vcf_filename}")
         else:
-            print(f"Skipping empty or missing VCF: {vcf_filename}")
+            print(f"Skipping empty or missing VCF: {vcf_filename}", file=sys.stderr)
 
     compressed_vcf_files = []
     index_files = []
@@ -60,21 +61,21 @@ def execute_wgatools_bcftools(pairs, maf_filename):
             compressed_vcf = f"{vcf_file}.gz"
             if os.path.exists(compressed_vcf):  # Ensure compression succeeded
                 compressed_vcf_files_for_sample.append(compressed_vcf)
-                print(f"Compressed: {compressed_vcf}")
+                #print(f"Compressed: {compressed_vcf}")
             else:
-                print(f"Failed to compress: {vcf_file}")
+                print(f"Failed to compress: {vcf_file}", file=sys.stderr)
 
         # If multiple contigs for a sample, concatenate the VCFs
         if len(compressed_vcf_files_for_sample) > 1:
             merged_vcf = f"{sample_name}.vcf.gz"
             subprocess.run(["bcftools", "concat", "-o", merged_vcf, "-O", "z"] + compressed_vcf_files_for_sample,
                            stderr=subprocess.PIPE, text=True)
-            print(f"Merged VCF for {sample_name}: {merged_vcf}")
+            #print(f"Merged VCF for {sample_name}: {merged_vcf}")
 
             # Index the concatenated VCF
             index_file = f"{merged_vcf}.csi"
             subprocess.run(["bcftools", "index", merged_vcf], stderr=subprocess.PIPE, text=True)
-            print(f"Indexed merged VCF: {index_file}")
+            #print(f"Indexed merged VCF: {index_file}")
 
             compressed_vcf_files.append(merged_vcf)
             index_files.append(index_file)
@@ -82,20 +83,21 @@ def execute_wgatools_bcftools(pairs, maf_filename):
             single_vcf = compressed_vcf_files_for_sample[0]
             index_file = f"{single_vcf}.csi"
             subprocess.run(["bcftools", "index", single_vcf], stderr=subprocess.PIPE, text=True)
-            print(f"Indexed VCF: {index_file}")
+            #print(f"Indexed VCF: {index_file}")
 
             compressed_vcf_files.append(single_vcf)
             index_files.append(index_file)
         else:
-            print(f"No valid VCFs for sample: {sample_name}, skipping.")
+            print(f"No valid VCFs for sample: {sample_name}, skipping.", file=sys.stderr)
 
     # Ensure we have VCF files to merge
     if not compressed_vcf_files:
-        print("No valid VCF files to merge. Exiting.")
+        print("No valid VCF files to merge. Exiting.", file=sys.stderr)
         return None
 
     # Merge all VCF files and remove FORMAT/QI
-    merged_vcf_output = "merged.vcf"
+    directory = os.path.dirname(maf_filename)
+    merged_vcf_output = os.path.join(directory, "merged.vcf")
     merge_command = ["bcftools", "merge"] + compressed_vcf_files + ["-0"]
     annotate_command = ["bcftools", "annotate", "--remove", "FORMAT/QI"]
 
@@ -106,16 +108,16 @@ def execute_wgatools_bcftools(pairs, maf_filename):
         merge_process.stdout.close()
         annotate_process.communicate()
 
-    print(f"Final merged VCF file: {merged_vcf_output}")
+    #print(f"Final merged VCF file: {merged_vcf_output}")
 
     # Cleanup intermediate files (compressed VCFs & index files)
     for vcf_file in compressed_vcf_files:
         os.remove(vcf_file)
-        print(f"Removed: {vcf_file}")
+        #print(f"Removed: {vcf_file}")
 
     for index_file in index_files:
         os.remove(index_file)
-        print(f"Removed index file: {index_file}")
+        #print(f"Removed index file: {index_file}")
 
     return merged_vcf_output
 
@@ -135,7 +137,7 @@ def modify_vcf(vcf_filename):
                 line = re.sub(r"\b(\d)\|\1\b", "1", line)
                 file.write(line)
 
-    print(f"Modified VCF file: {vcf_filename} (Replaced 0/0 with 0, x|x with 1)")
+    #print(f"Modified VCF file: {vcf_filename} (Replaced 0/0 with 0, x|x with 1)")
 
 def main():
     parser = argparse.ArgumentParser(description="Process a MAF file to generate a merged VCF.")
@@ -144,13 +146,14 @@ def main():
     args = parser.parse_args()
     maf_filename = args.maf_file
 
+    print("Calling variants from Parsnp alignment...", file=sys.stderr)
     result = process_maf_file(maf_filename)
 
     if result:
         final_vcf = execute_wgatools_bcftools(result,maf_filename)
         if final_vcf:
             modify_vcf(final_vcf)
-            print(f"Final output VCF: {final_vcf}")
+            print(f"Final output VCF: {final_vcf}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -36,12 +36,17 @@ def update_fasta_header(fasta_path):
         f.writelines(lines)
     return new_fasta_path
 
-def count_bases_and_write_tsv(bam_path, ref_fasta_path, positions_file, output_file):
+def count_bases_and_write_tsv(bam_path, reference_path, positions_file, output_dir):
     positions = read_positions(positions_file)
     samfile = pysam.AlignmentFile(bam_path, "rb")
-    fasta = pysam.FastaFile(ref_fasta_path)
+    fasta = pysam.FastaFile(reference_path)
+    bam_basename = os.path.basename(bam_path)
+    output_name = os.path.splitext(bam_basename)[0].split('_sorted')[0] + '_read_counts.tsv'
+    output_path = os.path.join(output_dir, output_name)
+    #output_name = '_read_counts.tsv'
+    #output_file = output_file + '_read_counts.tsv'
 
-    with open(output_file, 'w') as out:
+    with open(output_path, 'w') as out:
         out.write("chrom\tposition\tref\tbase\tcount\n")
 
         for chrom, pos in positions:
@@ -101,11 +106,11 @@ def main():
     parser.add_argument("--bam", required=True, help="Input BAM file")
     parser.add_argument("--ref", required=True, help="Reference FASTA file")
     parser.add_argument("--positions", required=True, help="Positions file (tab-delimited: chrom<tab>pos)")
-    parser.add_argument("--output", required=True, help="Output TSV file")
+    parser.add_argument("--output", required=True, help="Output directory")
     args = parser.parse_args()
 
-    new_path = update_fasta_header(args.ref)
-    count_bases_and_write_tsv(args.bam, new_path, args.positions, args.output)
+    #new_path = update_fasta_header(args.ref)
+    count_bases_and_write_tsv(args.bam, args.ref, args.positions, args.output)
 
 
 
