@@ -7,7 +7,7 @@ import pandas as pd
 
 # === Command-line arguments ===
 if len(sys.argv) != 3:
-    print("Usage: python compute_abundances_multi.py <read_counts_dir> <filtered_variant_matrix.csv>")
+    print("Usage: python compute_abundances_all.py <read_counts_dir> <filtered_variant_matrix.csv>")
     sys.exit(1)
 
 read_counts_dir = sys.argv[1]
@@ -90,5 +90,7 @@ for read_counts_file in read_count_files:
 
 # === Save final merged output ===
 abundance_df['strain name'] = abundance_df['strain name'].str.replace(r'\.fna$|\.fasta$', '', regex=True)
-abundance_df.to_csv("abundance_estimates_combined.csv", index=False)
+abundance_path = os.path.join(os.path.dirname(variant_matrix_file), "abundance_estimates_combined.csv")
+abundance_df.to_csv(abundance_path, index=False)
+
 print("\nAll samples processed. Combined output saved to 'abundance_estimates_combined.csv'.")
