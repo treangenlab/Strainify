@@ -1,5 +1,9 @@
-genome_folder: /home/Users/rl152/RL_fastas
-output_dir: results
-fastq_folder: /home/Users/rl152/strain_phasing/simulated_data/20x
-
+genome_folder: /home/Users/rl152/PycharmProjects/Strain_phasing/example/genomes
+output_dir: /home/Users/rl152/PycharmProjects/Strain_phasing/example/results
+fastq_folder: /home/Users/rl152/PycharmProjects/Strain_phasing/example/fastq/paired
+read_type: paired
+modify_windows: --window_size 500 --window_overlap 0
+weight_by_entropy: false
+use_precomputed_variants: false
+#precomputed_output_dir: /home/Users/rl152/PycharmProjects/Strain_phasing/example/results2
 

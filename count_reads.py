@@ -43,8 +43,7 @@ def count_bases_and_write_tsv(bam_path, reference_path, positions_file, output_d
     bam_basename = os.path.basename(bam_path)
     output_name = os.path.splitext(bam_basename)[0].split('_sorted')[0] + '_read_counts.tsv'
     output_path = os.path.join(output_dir, output_name)
-    #output_name = '_read_counts.tsv'
-    #output_file = output_file + '_read_counts.tsv'
+
 
     with open(output_path, 'w') as out:
         out.write("chrom\tposition\tref\tbase\tcount\n")
@@ -58,9 +57,9 @@ def count_bases_and_write_tsv(bam_path, reference_path, positions_file, output_d
             for pileupcolumn in samfile.pileup(
                 chrom, pos - 1, pos,
                 truncate=True,
-                ignore_overlaps=False,
+                ignore_overlaps=True,
                 stepper="all",
-                min_base_quality=0,
+                min_base_quality=20,
                 min_mapping_quality=0,
                 flag_filter=0,
                 max_depth=10000000,
@@ -109,7 +108,6 @@ def main():
     parser.add_argument("--output", required=True, help="Output directory")
     args = parser.parse_args()
 
-    #new_path = update_fasta_header(args.ref)
     count_bases_and_write_tsv(args.bam, args.ref, args.positions, args.output)
 
 
