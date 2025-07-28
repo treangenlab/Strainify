@@ -117,7 +117,7 @@ If you are running Strainify again on the same set of genomes, you can use the p
 genome_folder: example/genomes
 fastq_folder: example/fastq/single
 output_dir: example/results
-read_type: paired
+read_type: single
 modify_windows: --window_size 500 --window_overlap 0
 weight_by_entropy: false
 use_precomputed_variants: true
