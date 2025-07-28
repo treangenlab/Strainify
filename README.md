@@ -28,7 +28,7 @@ snakemake --cores 12 --configfile config.yaml
 ```
 
 
-## 📊 Examples
+## Examples
 
 Include example usage, sample input/output, or screenshots here.
 
