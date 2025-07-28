@@ -1,4 +1,5 @@
 # Strainify
+<img src="images/strainify.png" alt="Strainify diagram" style="width:30%;"/>
 
 Strainify is an accurate strain-level abundance analysis tool for short-read metagenomics.
 
