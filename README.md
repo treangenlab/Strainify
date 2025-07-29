@@ -111,7 +111,7 @@ The output will be written to the `example/results` directory.
 ### Running Strainify with a precomputed variant matrix:
 If you are running Strainify again on the same set of genomes, you can use the precomputed variant matrix by doing the following:
 
-1. In the `config.yaml` file, set `use_precomputed_variants` to `true` and `precomputed_output_dir` to your desired directory for storing the new output. If you do not provide a path for `precomputed_output_dir`, your output directory will be automatically set to `output_dir/precomputed_results`. For example:
+1. In the `config.yaml` file, set `use_precomputed_variants` to `true` and `precomputed_output_dir` to your desired directory for storing the new output. If you do not provide a path for `precomputed_output_dir`, your output directory will be automatically set to `output_dir/precomputed_results`. Make sure you set `output_dir` to the directory that contains the precomputed variant matrix. For example, let's use the variant matrix from the previous example, and the `config.yaml` file would look like this:
 
 ```yaml
 genome_folder: example/genomes
