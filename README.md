@@ -32,7 +32,7 @@ Strainify requires the following external dependencies:
 - [bcftools 1.21](https://www.htslib.org/download/)
 - [htslib 1.21](https://www.htslib.org/download/)
 - [bwa 0.7.18](https://github.com/lh3/bwa.git)
-- [samtools 1.13](https://www.htslib.org/download/)
+- [samtools 1.21](https://www.htslib.org/download/)
 
 ## Usage
 Strainify uses a `config.yaml` file to manage input files and parameters.
