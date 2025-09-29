@@ -16,6 +16,12 @@ git clone https://github.com/treangenlab/Strainify.git
 cd Strainify
 ```
 
+Use the following commands to initialize `git lfs` and download the example files: 
+```bash
+git lfs install
+git lfs checkout
+```
+
 ### Set up conda environment
 ```bash
 # Install conda and Python dependencies
@@ -24,15 +30,6 @@ conda env create -f environment.yaml
 # Activate conda environment
 conda activate strainify
 ```
-
-### Install other dependencies
-Strainify requires the following external dependencies:
-
-- [wgatools 0.1.0](https://github.com/wjwei-handsome/wgatools.git)  
-- [bcftools 1.21](https://www.htslib.org/download/)
-- [htslib 1.21](https://www.htslib.org/download/)
-- [bwa 0.7.18](https://github.com/lh3/bwa.git)
-- [samtools 1.21](https://www.htslib.org/download/)
 
 ## Usage
 Strainify uses a `config.yaml` file to manage input files and parameters.
