@@ -24,8 +24,11 @@ git lfs checkout
 
 ### Set up conda environment
 ```bash
-# Install conda and Python dependencies
+# For Linux:
 conda env create -f environment.yaml
+
+# For Mac:
+CONDA_SUBDIR=osx-64 conda env create -f environment_mac.yaml
 
 # Activate conda environment
 conda activate strainify
