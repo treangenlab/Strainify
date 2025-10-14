@@ -1,6 +1,6 @@
 # Strainify
 <p align="center">
-  <img src="images/strainify.png" alt="Strainify diagram" width="35%">
+  <img src="images/Strainify_logo.png" alt="Strainify diagram" width="50%">
 </p>
 
 
