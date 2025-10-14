@@ -1,8 +1,15 @@
 # Strainify
-<img src="images/strainify.png" alt="Strainify diagram" style="width:30%;"/>
+<p align="center">
+  <img src="images/strainify.png" alt="Strainify diagram" width="35%">
+</p>
+
 
 Strainify is an accurate strain-level abundance analysis tool for short-read metagenomics.
 
+## Strainify Workflow
+<p align="center">
+  <img src="images/Strainify_workflow.png" alt="Strainify diagram" width="100%">
+</p>
 
 ## Installation
 
@@ -146,6 +153,16 @@ Sakai,24.9406
 UTI89,26.423
 ```
 >Note: these numbers are percentages. 
+
+Other important output files:
+- `sites.txt` contains a list of variant positions that passed the filter. Read counts supporting the allele and reference base at these positions are then obtained and used as input to the MLE model. 
+- `filtered_variant_matrix.csv` contains the filtered variant matrix. Confounding variants (potential recombination sites) have been removed. For metagenomic samples that share the same set of strains (i.e. query genomes), this file can be reused to avoid rerunning the genome alignment and variant filtering steps. For more details, see instructions above for running Strainify with a precomputed variant matrix. 
+- `significantly_enriched_windows.tsv` contains the start and end coordinates of windows that are flagged as potential recombination sites. The z-score and p-values of each window are also shown. Variants in these windows are removed from downstream analysis (i.e. excluded from the filtered variant matrix).
+
+
+## Strainify Preprint
+Strainify: Strain-Level Microbiome Profiling for Low-Coverage Short-Read Metagenomic Datasets
+https://www.biorxiv.org/content/10.1101/2025.10.10.681738v1
 
 ## Questions / Contact
 
