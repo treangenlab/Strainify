@@ -96,7 +96,7 @@ if not use_precomputed_variants:
         shell:
             """
             mkdir -p {params.outdir}
-            parsnp -r ! -o {params.outdir} -c -p 8 --fo -d {params.genome_dir}
+            parsnp -r ! -o {params.outdir} -c -p 12 --fo -d {params.genome_dir}
             """
 
     rule maf2vcf:
@@ -105,7 +105,7 @@ if not use_precomputed_variants:
         output:
             vcf = os.path.join(output_dir, "parsnp_results", "merged.vcf")
         shell:
-            "python maf2vcf_v3.py --maf_file {input.maf} --temp_dir {output_dir}/temp"
+            "bash maf2vcf.sh {input.maf} && mv merged.vcf {output.vcf}"
 
     rule filter_variants:
         input:
@@ -208,7 +208,7 @@ rule count_reads:
     shell:
         """
         mkdir -p $(dirname {output.read_counts})
-        python count_reads.py --bam {input.bam} --ref {input.ref} --positions {input.positions} --output $(dirname {output.read_counts})
+        python count_reads_parallelized_v2.py --bam {input.bam} --ref {input.ref} --positions {input.positions} --output $(dirname {output.read_counts} --threads 12)
         """
 
 
