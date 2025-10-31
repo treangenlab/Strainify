@@ -4,7 +4,7 @@ THREADS=8
 echo "Calling variants on MAF file: $MAF"
 export MAF=$MAF
 mkdir -p vcfs
-parallel --jobs $THREADS 'SAMPLE={}; /home/Users/rl152/wgatools/target/release/wgatools call --query-regex "^${SAMPLE}#.*" --sample $SAMPLE --snp -o vcfs/$SAMPLE.vcf --svlen 0 -r  $MAF; bgzip vcfs/$SAMPLE.vcf; bcftools index vcfs/$SAMPLE.vcf.gz' ::: $(grep "^s" $MAF | cut -f2 | cut -f1 -d'#' | sort | uniq)
+parallel --jobs $THREADS 'SAMPLE={}; /home/Users/rl152/wgatools2/target/release/wgatools call --query-regex "^${SAMPLE}#.*" --sample $SAMPLE --snp -o vcfs/$SAMPLE.vcf --svlen 0 -r  $MAF; bgzip vcfs/$SAMPLE.vcf; bcftools index vcfs/$SAMPLE.vcf.gz' ::: $(grep "^s" $MAF | cut -f2 | cut -f1 -d'#' | sort | uniq)
 bcftools merge vcfs/*.vcf.gz -o merged.vcf.gz -O z --threads $THREADS
 bcftools index merged.vcf.gz
 bcftools annotate --remove FORMAT/QI  merged.vcf.gz -o merged.vcf

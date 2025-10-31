@@ -20,6 +20,9 @@ def read_positions(file_path):
 
 def process_chunk(chunk, bam_path, reference_path):
     """Process a subset of positions and return a DataFrame."""
+    bam_path = os.path.abspath(bam_path)
+    reference_path = os.path.abspath(reference_path)
+    
     samfile = pysam.AlignmentFile(bam_path, "rb")
     fasta = pysam.FastaFile(reference_path)
 

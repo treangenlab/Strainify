@@ -33,6 +33,10 @@ if __name__ == "__main__":
 
     # === Load variant matrix ===
     df_AF = pd.read_csv(variant_matrix_file)
+    # Sort by chromosome and position
+    if 'CHROM' in df_AF.columns and 'POS' in df_AF.columns:
+        df_AF = df_AF.sort_values(['CHROM', 'POS'], ascending=[True, True]).reset_index(drop=True)
+
     df_allele_freq = df_AF.drop(columns=['ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT'])
     strain_names = df_allele_freq.columns[2:]
     strain_count = len(strain_names)
@@ -44,6 +48,9 @@ if __name__ == "__main__":
     for read_counts_file in read_count_files:
         print(f"Processing {read_counts_file}...")
         df_read_counts = pd.read_csv(read_counts_file, sep='\t')
+        # Sort by chrom and position
+        if 'chrom' in df_read_counts.columns and 'position' in df_read_counts.columns:
+            df_read_counts = df_read_counts.sort_values(['chrom', 'position'], ascending=[True, True]).reset_index(drop=True)
         df_read_counts = df_read_counts.drop_duplicates(keep=False).reset_index(drop=True)
         df_AF = df_AF.reset_index(drop=True)
 
