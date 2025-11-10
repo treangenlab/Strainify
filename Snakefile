@@ -44,7 +44,7 @@ original_dir = output_dir
 output_dir = precomputed_output_dir if use_precomputed_variants else original_dir
 
 # Define benchmark directory under output_dir
-BENCH_DIR = os.path.join(output_dir, "benchmarks")
+#BENCH_DIR = os.path.join(output_dir, "benchmarks")
 
 
 if read_type == "paired":
@@ -73,8 +73,8 @@ if not use_precomputed_variants:
     rule make_output_dir:
         output:
             directory(output_dir)
-        benchmark:
-            os.path.join(BENCH_DIR, "make_output_dir.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "make_output_dir.tsv")
         shell:
             "mkdir -p {output}"
 
@@ -83,8 +83,8 @@ if not use_precomputed_variants:
             fasta=lambda wildcards: os.path.join(genome_folder, f"{wildcards.sample1}.fna")
         output:
             renamed = os.path.join(output_dir, "renamed_genomes", "{sample1}.fna")
-        benchmark:
-            os.path.join(BENCH_DIR, "rename_fasta_headers/{sample1}.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "rename_fasta_headers/{sample1}.tsv")
         run:
             os.makedirs(os.path.dirname(output.renamed), exist_ok=True)
             create_renamed_fasta(input.fasta, output.renamed)
@@ -99,8 +99,8 @@ if not use_precomputed_variants:
             genome_dir = os.path.join(output_dir, "renamed_genomes"),
             parsnp_flags = lambda wildcards: config.get("parsnp_flags", "-c")
         threads: 12
-        benchmark:
-            os.path.join(BENCH_DIR, "run_parsnp.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "run_parsnp.tsv")
         shell:
             """
             mkdir -p {params.outdir}
@@ -112,8 +112,8 @@ if not use_precomputed_variants:
             maf = rules.run_parsnp.output.maf
         output:
             vcf = os.path.join(output_dir, "parsnp_results", "merged.vcf")
-        benchmark:
-            os.path.join(BENCH_DIR, "maf2vcf.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "maf2vcf.tsv")
         shell:
             "bash maf2vcf.sh {input.maf} && mv merged.vcf {output.vcf}"
 
@@ -127,8 +127,8 @@ if not use_precomputed_variants:
             recomb_windows = os.path.join(output_dir, "significantly_enriched_windows.tsv"),
             filtered_variant_matrix = os.path.join(output_dir, "filtered_variant_matrix.csv"),
             sites = os.path.join(output_dir, "sites.txt")
-        benchmark:
-            os.path.join(BENCH_DIR, "filter_variants.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "filter_variants.tsv")
         shell:
             "python filter_variants_v2.py --maf {input.maf} --vcf {input.vcf} --output_dir {output_dir} {params.modify_windows}"
 
@@ -137,8 +137,8 @@ if not use_precomputed_variants:
             maf = rules.run_parsnp.output.maf
         output:
             ref = os.path.join(output_dir, "reference.fna")
-        benchmark:
-            os.path.join(BENCH_DIR, "get_ref.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "get_ref.tsv")
         run:
             ref_path = find_ref_file(output_dir)
             shutil.copy(ref_path, output.ref)
@@ -148,8 +148,8 @@ if not use_precomputed_variants:
             ref = rules.get_ref.output.ref
         output:
             fai = rules.get_ref.output.ref + ".fai"
-        benchmark:
-            os.path.join(BENCH_DIR, "faidx_ref.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "faidx_ref.tsv")
         shell:
             "samtools faidx {input.ref}"
 
@@ -160,8 +160,8 @@ else:
             original_ref = os.path.join(original_dir, "reference.fna")
         output:
             ref=os.path.join(output_dir, "reference.fna")
-        benchmark:
-            os.path.join(BENCH_DIR, "get_ref_precomputed.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "get_ref_precomputed.tsv")
         run:
             shutil.copy(input.original_ref,output.ref)
 
@@ -170,8 +170,8 @@ else:
             ref = rules.get_ref.output.ref
         output:
             fai = rules.get_ref.output.ref + ".fai"
-        benchmark:
-            os.path.join(BENCH_DIR, "faidx_ref_precomputed.tsv")
+        # benchmark:
+        #     os.path.join(BENCH_DIR, "faidx_ref_precomputed.tsv")
         shell:
             "samtools faidx {input.ref}"
 
@@ -184,8 +184,8 @@ rule bwa_index:
         ann = rules.get_ref.output.ref + ".ann",
         amb = rules.get_ref.output.ref + ".amb",
         sa  = rules.get_ref.output.ref + ".sa"
-    benchmark:
-        os.path.join(BENCH_DIR, "bwa_index.tsv")
+    # benchmark:
+    #     os.path.join(BENCH_DIR, "bwa_index.tsv")
     shell:
         "bwa index {input.ref}"
 
@@ -203,8 +203,8 @@ rule map_reads:
             if read_type == "paired"
             else f"{os.path.join(fastq_folder, wildcards.sample)}.fq"
         )
-    benchmark:
-        os.path.join(BENCH_DIR, "map_reads/{sample}.tsv")
+    # benchmark:
+    #     os.path.join(BENCH_DIR, "map_reads/{sample}.tsv")
     shell:
         """
         mkdir -p $(dirname {output.sam})
@@ -218,8 +218,8 @@ rule filter_and_index_sam:
     output:
         sorted_bam = os.path.join(output_dir, "mapped_reads", "{sample}_sorted.bam")
     threads: 8
-    benchmark:
-        os.path.join(BENCH_DIR, "filter_and_index_sam/{sample}.tsv")
+    # benchmark:
+    #     os.path.join(BENCH_DIR, "filter_and_index_sam/{sample}.tsv")
     shell:
         "samtools view {input.sam} -b -F256 -F2048 -F4 -q60 | samtools sort -o {output.sorted_bam} --write-index -@ {threads}"
 
@@ -237,8 +237,8 @@ rule count_reads:
     output:
         read_counts = os.path.join(output_dir, "read_counts", "{sample}_read_counts.tsv")
     threads: 12
-    benchmark:
-        os.path.join(BENCH_DIR, "count_reads/{sample}.tsv")
+    # benchmark:
+    #     os.path.join(BENCH_DIR, "count_reads/{sample}.tsv")
     shell:
         """
         mkdir -p $(dirname {output.read_counts})
@@ -256,8 +256,8 @@ rule finalize_read_counts:
         expand(os.path.join(output_dir,"read_counts","{sample}_read_counts.tsv"),sample=SAMPLES)
     output:
         marker=os.path.join(output_dir,"read_counts","done.txt")
-    benchmark:
-        os.path.join(BENCH_DIR, "finalize_read_counts.tsv")
+    # benchmark:
+    #     os.path.join(BENCH_DIR, "finalize_read_counts.tsv")
     shell:
         "touch {output.marker}"
 
@@ -275,8 +275,8 @@ rule compute_abundances:
     params:
         read_count_dir = os.path.join(output_dir, "read_counts"),
         weight_flag = "--weight_by_entropy" if config.get("weight_by_entropy", False) else ""
-    benchmark:
-        os.path.join(BENCH_DIR, "compute_abundances.tsv")
+    # benchmark:
+    #     os.path.join(BENCH_DIR, "compute_abundances.tsv")
     shell:
         "python compute_abundances_all.py --read_counts_dir {params.read_count_dir} --filtered_variants {input.filtered_variant_matrix} {params.weight_flag}"
 
