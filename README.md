@@ -34,9 +34,6 @@ git lfs checkout
 # For Linux:
 conda env create -f environment.yaml
 
-# For Mac:
-CONDA_SUBDIR=osx-64 conda env create -f environment_mac.yaml
-
 # Activate conda environment
 conda activate strainify
 ```
@@ -58,6 +55,7 @@ These fields can be set in `config.yaml`:
 | `weight_by_entropy`        | Whether to weight variants by their Shannon entropy when estimating strain abundances.                              | `false`                          | `true` or `false`                             |
 | `use_precomputed_variants`| Use existing filtered variant matrix instead of recomputing from scratch.                                           | `false`                          | `true` or `false`                             |
 | `precomputed_output_dir`  | Path to directory where new output will be saved.                                                        | `output_dir/precomputed_results` | A valid directory path                        |
+| `parsnp_flags`  | Parsnp flags                                                        | `-c` (force inclusion of all genomes) | Valid Parsnp flags (see `parsnp -h` for available parameters)                        |
 
 
 
@@ -162,7 +160,7 @@ Other important output files:
 
 ## Strainify Preprint
 Strainify: Strain-Level Microbiome Profiling for Low-Coverage Short-Read Metagenomic Datasets
-https://www.biorxiv.org/content/10.1101/2025.10.10.681738v1
+https://www.biorxiv.org/content/10.1101/2025.10.10.681738v2
 
 ## Questions / Contact
 
