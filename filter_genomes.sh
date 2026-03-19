@@ -283,4 +283,8 @@ echo "Genomes with zero coverage listed in:"
 echo "  $ZERO_OUT"
 echo
 echo "Running Strainify..."
-snakemake --cores "$THREADS" --configfile "$CONFIG_PATH" --config genome_folder="$FILTERED_DIR"
+#snakemake --cores "$THREADS" --configfile "$CONFIG_PATH" --config genome_folder="$FILTERED_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SNAKEFILE="$SCRIPT_DIR/Snakefile"
+
+snakemake --snakefile "$SNAKEFILE" --cores "$THREADS" --configfile "$CONFIG_PATH" --config genome_folder="$FILTERED_DIR"

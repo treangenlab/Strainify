@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SNAKEFILE="$SCRIPT_DIR/Snakefile"
+FILTER_SCRIPT="$SCRIPT_DIR/filter_genomes.sh"
+
+usage() {
+    cat <<EOF
+Strainify CLI
+
+Usage:
+  strainify run [snakemake args...]
+  strainify filter-run [filter args...]
+
+Commands:
+  run
+      Run Snakemake pipeline directly
+
+      Example:
+        strainify run --cores 12 --configfile config.yaml
+
+  filter-run
+      Run genome filtering + pipeline
+
+      Example:
+        strainify filter-run \\
+          --genomes genomes \\
+          --fastqs fastqs \\
+          --out results \\
+          --config config.yaml \\
+          --threads 12
+
+  help
+      Show this message
+EOF
+    exit 1
+}
+
+# ----------------------------
+# Parse command
+# ----------------------------
+if [[ $# -lt 1 ]]; then
+    usage
+fi
+
+CMD="$1"
+shift
+
+case "$CMD" in
+    run)
+        if [[ ! -f "$SNAKEFILE" ]]; then
+            echo "ERROR: Snakefile not found at $SNAKEFILE" >&2
+            exit 1
+        fi
+
+        snakemake --snakefile "$SNAKEFILE" "$@"
+        ;;
+
+    filter-run)
+        if [[ ! -f "$FILTER_SCRIPT" ]]; then
+            echo "ERROR: filter script not found: $FILTER_SCRIPT" >&2
+            exit 1
+        fi
+
+        # auto-fix permissions if needed
+        if [[ ! -x "$FILTER_SCRIPT" ]]; then
+            chmod +x "$FILTER_SCRIPT" || {
+                echo "ERROR: Could not make filter script executable" >&2
+                exit 1
+            }
+        fi
+
+        "$FILTER_SCRIPT" "$@"
+        ;;
+
+    help|-h|--help)
+        usage
+        ;;
+
+    *)
+        echo "ERROR: Unknown command: $CMD" >&2
+        usage
+        ;;
+esac
