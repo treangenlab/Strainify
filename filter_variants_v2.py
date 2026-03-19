@@ -62,6 +62,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', required=True, help="output directory name")
     parser.add_argument('--window_size', default="500", help="Window size (positive integer) or 'average_LCB_length'")
     parser.add_argument('--window_overlap', type=float, default=0.0, help="Window overlap as a float in [0, 1)")
+    parser.add_argument('--filter_off', action='store_true', help="If set, skip filtering variants")
 
     args = parser.parse_args()
 
@@ -154,8 +155,15 @@ if __name__ == "__main__":
             chi2_stat = ((observed - expected) ** 2) / expected
             p_value = chi2.sf(chi2_stat, df=1)
             z = (observed - expected) / np.sqrt(expected)
+            
+        # Remove filter by setting p_value < -1 as the condition
+            if args.filter_off:
+                cutoff = -1
+                print("Filter is off. No windows will be filtered out.")
+            else:
+                cutoff = 0.05
 
-            if p_value < 0.05 and observed > expected:
+            if p_value < cutoff and observed > expected:
                 significant_windows.append({
                     'chrom': chrom,
                     'start': start,

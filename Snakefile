@@ -115,14 +115,15 @@ if not use_precomputed_variants:
         # benchmark:
         #     os.path.join(BENCH_DIR, "maf2vcf.tsv")
         shell:
-            "bash maf2vcf.sh {input.maf} && mv merged.vcf {output.vcf}"
+            "bash maf2vcf_v2.sh {input.maf} && mv merged.vcf {output.vcf}"
 
     rule filter_variants:
         input:
             maf = rules.run_parsnp.output.maf,
             vcf = rules.maf2vcf.output.vcf
         params:
-            modify_windows = lambda wildcards: config.get("modify_windows", "")
+            modify_windows = lambda wildcards: config.get("modify_windows", ""),
+            filter_off = "--filter_off" if config.get("filter_off", False) else ""
         output:
             recomb_windows = os.path.join(output_dir, "significantly_enriched_windows.tsv"),
             filtered_variant_matrix = os.path.join(output_dir, "filtered_variant_matrix.csv"),
@@ -130,7 +131,7 @@ if not use_precomputed_variants:
         # benchmark:
         #     os.path.join(BENCH_DIR, "filter_variants.tsv")
         shell:
-            "python filter_variants_v2.py --maf {input.maf} --vcf {input.vcf} --output_dir {output_dir} {params.modify_windows}"
+            "python filter_variants_v2.py --maf {input.maf} --vcf {input.vcf} --output_dir {output_dir} {params.modify_windows} {params.filter_off}" 
 
     rule get_ref:
         input:
@@ -274,10 +275,12 @@ rule compute_abundances:
         abundances = os.path.join(output_dir, "abundance_estimates_combined.csv")
     params:
         read_count_dir = os.path.join(output_dir, "read_counts"),
-        weight_flag = "--weight_by_entropy" if config.get("weight_by_entropy", False) else ""
+        weight_flag = "--weight_by_entropy" if config.get("weight_by_entropy", False) else "",
+        bootstrap = lambda wildcards: config.get("bootstrap", "")
+    threads: 12
     # benchmark:
     #     os.path.join(BENCH_DIR, "compute_abundances.tsv")
     shell:
-        "python compute_abundances_all.py --read_counts_dir {params.read_count_dir} --filtered_variants {input.filtered_variant_matrix} {params.weight_flag}"
+        "python compute_abundances_all_v3.py --read_counts_dir {params.read_count_dir} --threads {threads} --filtered_variants {input.filtered_variant_matrix} {params.weight_flag} {params.bootstrap}"
 
 
