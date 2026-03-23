@@ -5,9 +5,7 @@ read_type: paired
 modify_windows: --window_size 500 --window_overlap 0
 weight_by_entropy: false
 use_precomputed_variants: false
-use_benchmark: false
 parsnp_flags: -c
 filter_off: false
 #bootstrap: --bootstrap --bootstrap_iterations 100
 #precomputed_output_dir: path/to/new_output
-

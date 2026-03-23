@@ -6,20 +6,22 @@ GENOME_DIR=""
 FASTQ_DIR=""
 OUTDIR=""
 CONFIG_PATH=""
+SNAKEMAKE_CONFIG_ARGS=()
 
 usage() {
     cat <<EOF
 Usage:
-  bash filter_genomes.sh --genomes <genome_dir> --fastqs <fastq_dir> --out <output_dir> --config <strainify_config.yaml> [--threads <n>]
+  ./strainify filter-run --genomes <genome_dir> --fastqs <fastq_dir> --out <output_dir> --configfile <strainify_config.yaml> [--threads <n>] [--config key=value ...]
 
 Required arguments:
   -g, --genomes   Path to folder of input genomes
   -f, --fastqs    Path to folder of FASTQ files
   -o, --out       Output directory
-  -c, --config    Path to Strainify config.yaml
+  -c, --configfile    Path to Strainify config.yaml
 
 Optional arguments:
   -t, --threads   Number of threads (default: 8)
+      --config    Additional Snakemake config overrides, e.g. --config weight_by_entropy=true
   -h, --help      Show this help message
 
 Example:
@@ -27,8 +29,8 @@ Example:
     --genomes /path/to/genomes \\
     --fastqs /path/to/fastqs \\
     --out /path/to/output \\
-    --config /path/to/config.yaml \\
-    --threads 16
+    --configfile /path/to/config.yaml \\
+    --threads 12
 EOF
     exit 1
 }
@@ -53,7 +55,7 @@ while [[ $# -gt 0 ]]; do
             OUTDIR="$2"
             shift 2
             ;;
-        -c|--config)
+        -c|--configfile)
             [[ $# -ge 2 ]] || usage
             CONFIG_PATH="$2"
             shift 2
@@ -62,6 +64,13 @@ while [[ $# -gt 0 ]]; do
             [[ $# -ge 2 ]] || usage
             THREADS="$2"
             shift 2
+            ;;
+        --config)
+            shift
+            while [[ $# -gt 0 && "$1" != -* ]]; do
+                SNAKEMAKE_CONFIG_ARGS+=("$1")
+                shift
+            done
             ;;
         -h|--help)
             usage
@@ -77,7 +86,7 @@ done
 # Validate inputs
 # ----------------------------
 if [[ -z "$GENOME_DIR" || -z "$FASTQ_DIR" || -z "$OUTDIR" || -z "$CONFIG_PATH" ]]; then
-    echo "ERROR: --genomes, --fastqs, --out, and --config are required." >&2
+    echo "ERROR: --genomes, --fastqs, --out, and --configfile are required." >&2
     usage
 fi
 
@@ -287,4 +296,4 @@ echo "Running Strainify..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SNAKEFILE="$SCRIPT_DIR/Snakefile"
 
-snakemake --snakefile "$SNAKEFILE" --cores "$THREADS" --configfile "$CONFIG_PATH" --config genome_folder="$FILTERED_DIR"
+snakemake --snakefile "$SNAKEFILE" --cores "$THREADS" --configfile "$CONFIG_PATH" --config genome_folder="$FILTERED_DIR" "${SNAKEMAKE_CONFIG_ARGS[@]}"

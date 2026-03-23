@@ -26,7 +26,7 @@ def find_ref_file(output_dir):
     raise ValueError(f"No .ref file found in {search_dir}.")
 
 def bench(path):
-    return path if config.get("use_benchmark", False) else None
+    return path
 
 # Load config values
 genome_folder = config["genome_folder"]
