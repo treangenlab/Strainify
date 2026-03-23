@@ -16,17 +16,9 @@ Strainify is an accurate strain-level abundance analysis tool for short-read met
 
 ### Clone the repository
 
-Strainify uses [Git LFS](https://github.com/git-lfs/git-lfs.git) to manage large files (e.g., genomes, test data). Please ensure that it is set up **before cloning the repository**.
-
 ```bash
 git clone https://github.com/treangenlab/Strainify.git
 cd Strainify
-```
-
-Use the following commands to initialize `git lfs` and download the example files: 
-```bash
-git lfs install
-git lfs checkout
 ```
 
 ### Set up conda environment
@@ -56,7 +48,8 @@ These fields can be set in `config.yaml`:
 | `use_precomputed_variants`| Use existing filtered variant matrix instead of recomputing from scratch.                                           | `false`                          | `true` or `false`                             |
 | `precomputed_output_dir`  | Path to directory where new output will be saved.                                                        | `output_dir/precomputed_results` | A valid directory path                        |
 | `parsnp_flags`  | Parsnp flags                                                        | `-c` (force inclusion of all genomes) | Valid Parsnp flags (see `parsnp -h` for available parameters)                        |
-
+| `filter_off`  | Option to turn off the recombination filter (recommended when input genomes differ by less than 500 variants to maximize Strainify's resolution)                                                       | `false`  | `true` or `false`                        |
+| `bootstrap`  | Run bootstrapping to estimate uncertainty (95% confidence intervals)                                                        | —  | If the `--bootstrap` flag is provided to the `bootstrap` parameter, bootstrapping will be applied when computing relative abundances. Bootstrap iterations can be set via the `--bootstrap_iterations` flag (default: 100)                        |
 
 
 ### Edit the `config.yaml`
@@ -70,94 +63,54 @@ read_type: paired
 modify_windows: --window_size 500 --window_overlap 0
 weight_by_entropy: false
 use_precomputed_variants: false
+parsnp_flags: -c
+filter_off: false
+#bootstrap: --bootstrap --bootstrap_iterations 100
 precomputed_output_dir: path/to/new_output
 ```
 
 ### Running Strainify
-Use Snakemake to run the pipeline:
 ```bash
-snakemake --cores 12 --configfile config.yaml
+./strainify run --cores 12 --configfile config.yaml
 ```
 >Tip: Replace `12` with the number of CPU cores you want to allocate.
 >You can set `--cores` to any positive integer, depending on your system’s available resources.
 
-
-## Examples
-
-Strainify includes example input data to help you get started quickly.
-
-### Running Strainify without a precomputed variant matrix:
-To run the pipeline on the example data:
-
-1. Unzip the compressed FASTQ files. The following command line can be used for Linux systems. 
+If you prefer not to use a config file, you can also pass everything to Strainify via `--config`. Example:
 ```bash
-gunzip example/fastq/paired/*.gz
-gunzip example/fastq/single/*.gz
+./strainify run --cores 12 \
+  --config genome_folder=path/to/genomes output_dir=path/to/output fastq_folder=path/to/fastqs
 ```
 
-2. Make sure your `config.yaml` is set like this:
 
-```yaml
-genome_folder: example/genomes
-fastq_folder: example/fastq/paired
-output_dir: example/results
-read_type: paired
-modify_windows: --window_size 500 --window_overlap 0
-weight_by_entropy: false
-use_precomputed_variants: false
-```
+### Running Strainify with pre-filtered reference genomes
+If you suspect that some of your input reference genomes might not actually be present in the metagenomic samples you are analyzing, we recommend pre-filtering the reference genomes to avoid potential false positives in Strainify's output. This step will concatenate all input reference FASTAs into one, and map the FASTQ reads to this concatenated FASTA. After filtering for high confidence, uniquely mapped reads, the genomes in the original set of FASTAs that have zero reads mapped to them will be discarded (they are unlikely to be present in the metagenomic data). 
 
-3. Run Strainify with Snakemake:
+The following command will run the pre-filtering step and then run Strainify with only genomes that passed the filter:
 ```bash
-snakemake --cores 12 --configfile config.yaml
+./strainify filter-run \
+  --genomes /path/to/genomes \
+  --fastqs /path/to/fastqs \
+  --out /path/to/output \
+  --configfile /path/to/config.yaml \
+  --config <key1=value1 key2=value2 ...>
+  --threads 12
 ```
-The output will be written to the `example/results` directory.
+A config file is required here, but specific parameters can be overridden via `--config`. Refer to `./strainify filter-run --help` for more details on usage. 
 
-### Running Strainify with a precomputed variant matrix:
-If you are running Strainify again on the same set of genomes, you can use the precomputed variant matrix by doing the following:
-
-1. In the `config.yaml` file, set `use_precomputed_variants` to `true` and `precomputed_output_dir` to your desired directory for storing the new output. If you do not provide a path for `precomputed_output_dir`, your output directory will be automatically set to `output_dir/precomputed_results`. Make sure you set `output_dir` to the directory that contains the precomputed variant matrix. For example, let's use the variant matrix from the previous example, and the `config.yaml` file would look like this:
-
-```yaml
-genome_folder: example/genomes
-fastq_folder: example/fastq/single
-output_dir: example/results
-read_type: single
-modify_windows: --window_size 500 --window_overlap 0
-weight_by_entropy: false
-use_precomputed_variants: true
-precomputed_output_dir: example/new_output
-```
-2. Run Strainify with Snakemake:
-```bash
-snakemake --cores 12 --configfile config.yaml
-```
-The output will be written to the `example/new_output` directory.
-
-## Example Output
-
-The abundance estimates are stored in a CSV file named `abundance_estimates_combined.csv`.
-
-- Each row corresponds to a strain.
-- Each column (after the first) corresponds to a sample.
-- Values represent the estimated relative abundances.
-
-Example CSV output:
-```bash
-strain name,10x_ratio_2
-E24377A,23.7987
-H10407,24.8376
-Sakai,24.9406
-UTI89,26.423
-```
->Note: these numbers are percentages. 
-
-Other important output files:
-- `sites.txt` contains a list of variant positions that passed the filter. Read counts supporting the allele and reference base at these positions are then obtained and used as input to the MLE model. 
-- `filtered_variant_matrix.csv` contains the filtered variant matrix. Confounding variants (potential recombination sites) have been removed. For metagenomic samples that share the same set of strains (i.e. query genomes), this file can be reused to avoid rerunning the genome alignment and variant filtering steps. For more details, see instructions above for running Strainify with a precomputed variant matrix. 
-- `significantly_enriched_windows.tsv` contains the start and end coordinates of windows that are flagged as potential recombination sites. The z-score and p-values of each window are also shown. Variants in these windows are removed from downstream analysis (i.e. excluded from the filtered variant matrix).
+>Tip: `--out` points to the directory for the pre-filtering step's output. Within this directory, the subfolder `filtered_genomes` contains the genomes that passed the filter, and the file `genomes_with_zero_coverage_across_all_samples.txt` contains the names of genomes that did not pass the filter. 
 
 
+## Tutorial / Examples
+
+For step-by-step instructions using example data, see the tutorial:
+
+[Strainify Tutorial](documentation/tutorial.md)
+
+
+## Reproducing paper analyses
+Please refer to the scripts and documentation in this repository:
+https://github.com/treangenlab/Strainify_paper
 ## Strainify Preprint
 Strainify: Strain-Level Microbiome Profiling for Low-Coverage Short-Read Metagenomic Datasets
 https://www.biorxiv.org/content/10.1101/2025.10.10.681738v2
