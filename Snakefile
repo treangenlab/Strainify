@@ -46,6 +46,7 @@ output_dir = precomputed_output_dir if use_precomputed_variants else original_di
 # Define benchmark directory under output_dir
 #BENCH_DIR = os.path.join(output_dir, "benchmarks")
 
+SCRIPT_DIR = workflow.basedir
 
 if read_type == "paired":
     fastq_files = glob.glob(os.path.join(fastq_folder, "*_r1.fq"))
@@ -115,7 +116,7 @@ if not use_precomputed_variants:
         # benchmark:
         #     os.path.join(BENCH_DIR, "maf2vcf.tsv")
         shell:
-            "bash maf2vcf_v2.sh {input.maf} && mv merged.vcf {output.vcf}"
+            "bash {SCRIPT_DIR}/maf2vcf_v2.sh {input.maf} && mv merged.vcf {output.vcf}"
 
     rule filter_variants:
         input:
@@ -131,7 +132,7 @@ if not use_precomputed_variants:
         # benchmark:
         #     os.path.join(BENCH_DIR, "filter_variants.tsv")
         shell:
-            "python filter_variants_v2.py --maf {input.maf} --vcf {input.vcf} --output_dir {output_dir} {params.modify_windows} {params.filter_off}" 
+            "python {SCRIPT_DIR}/filter_variants_v2.py --maf {input.maf} --vcf {input.vcf} --output_dir {output_dir} {params.modify_windows} {params.filter_off}" 
 
     rule get_ref:
         input:
@@ -243,7 +244,7 @@ rule count_reads:
     shell:
         """
         mkdir -p $(dirname {output.read_counts})
-        python {workflow.basedir}/count_reads_parallelized_v2.py \
+        python {SCRIPT_DIR}/count_reads_parallelized_v2.py \
             --bam $(realpath {input.bam}) \
             --ref $(realpath {input.ref}) \
             --positions $(realpath {input.positions}) \
@@ -281,6 +282,6 @@ rule compute_abundances:
     # benchmark:
     #     os.path.join(BENCH_DIR, "compute_abundances.tsv")
     shell:
-        "python compute_abundances_all_v3.py --read_counts_dir {params.read_count_dir} --threads {threads} --filtered_variants {input.filtered_variant_matrix} {params.weight_flag} {params.bootstrap}"
+        "python {SCRIPT_DIR}/compute_abundances_all_v3.py --read_counts_dir {params.read_count_dir} --threads {threads} --filtered_variants {input.filtered_variant_matrix} {params.weight_flag} {params.bootstrap}"
 
 
