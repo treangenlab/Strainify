@@ -97,9 +97,9 @@ if __name__ == "__main__":
                 end = start + size
                 core_intervals_per_chrom[chrom].append((start, end))
 
-    # Optional: Sort intervals for each CHROM
+    # Sort intervals for each CHROM
     for chrom in core_intervals_per_chrom:
-        core_intervals_per_chrom[chrom].sort()# Flatten all intervals across all contigs
+        core_intervals_per_chrom[chrom].sort()
     # Flatten all intervals across all contigs
     all_intervals = [end - start for intervals in core_intervals_per_chrom.values() for start, end in intervals]
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                     'pval': round(p_value, 6)
                 })
 
-    # Write results
+    
     filtered_df = pd.DataFrame(significant_windows)
     filtered_df.to_csv(os.path.join(output_dir, "significantly_enriched_windows.tsv"), sep='\t', index=False)
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     # Keep only biallelic variants (ALT with a single allele)
     df_AF = df_AF[df_AF['ALT'].apply(lambda x: len(set(x.split(','))) == 1)]
 
-    # Reset index for cleanliness
+    # Reset index
     df_AF.reset_index(drop=True, inplace=True)
 
     # Save filtered variant matrix

@@ -58,7 +58,7 @@ def run_mle(A, b, c, strain_count, read_counts_file, weight_by_entropy):
 
 def process_sample(read_counts_path, df_AF, df_allele_freq, strain_names, strain_count,
                    weight_by_entropy, bootstrap, bootstrap_iterations):
-    read_counts_file = read_counts_path  # so run_mle can print it unchanged
+    read_counts_file = read_counts_path  
 
     print(f"Processing {read_counts_file}...")
     df_read_counts = pd.read_csv(read_counts_file, sep='\t')
@@ -85,7 +85,7 @@ def process_sample(read_counts_path, df_AF, df_allele_freq, strain_names, strain
 
     if merged_ref_var.empty:
         print(f"Warning: No overlap found in {read_counts_file}")
-        return None  # <--- was "continue"
+        return None  
 
     merged_ref_var['depth'] = merged_ref_var['count_x'] + merged_ref_var['count_y']
     merged_ref_var['vaf_x'] = merged_ref_var['count_x'] / merged_ref_var['depth']
@@ -98,7 +98,7 @@ def process_sample(read_counts_path, df_AF, df_allele_freq, strain_names, strain
 
     if merged_ref_var.empty:
         print(f"All positions filtered out for {read_counts_file} due to low depth")
-        return None  # <--- was "continue"
+        return None  
 
     observed_ref_vector = merged_ref_var['vaf_x']
     observed_var_vector = merged_ref_var['vaf_y']
@@ -212,7 +212,7 @@ if __name__ == "__main__":
             if args.bootstrap and ci_col is not None:
                 bootstrap_df[sample_id] = ci_col
 
-    # Save outputs (same as your original)
+
     abundance_df['strain name'] = abundance_df['strain name'].str.replace(r'\.fna$|\.fasta$', '', regex=True)
     abundance_path = os.path.join(os.path.dirname(read_counts_dir), "abundance_estimates_combined.csv")
     abundance_df.to_csv(abundance_path, index=False)
