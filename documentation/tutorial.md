@@ -20,7 +20,7 @@ gunzip example/fastq/single/*.gz
 
 ```yaml
 genome_folder: example/genomes
-fastq_folder: example/fastq/paired
+fastq_folder: example/fastqs/paired
 output_dir: example/results
 read_type: paired
 modify_windows: --window_size 500 --window_overlap 0
@@ -41,7 +41,7 @@ If you are running Strainify again on the same set of genomes, you can use the p
 
 ```yaml
 genome_folder: example/genomes
-fastq_folder: example/fastq/single
+fastq_folder: example/fastqs/single
 output_dir: example/results
 read_type: single
 modify_windows: --window_size 500 --window_overlap 0
