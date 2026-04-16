@@ -12,8 +12,8 @@ Strainify includes example input data to help you get started quickly. To run th
 
 1. Unzip the compressed FASTQ files. The following command line can be used for Linux systems. 
 ```bash
-gunzip example/fastq/paired/*.gz
-gunzip example/fastq/single/*.gz
+gunzip example/fastqs/paired/*.gz
+gunzip example/fastqs/single/*.gz
 ```
 
 2. Make sure your `config.yaml` is set like this:
