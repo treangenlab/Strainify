@@ -1,0 +1,25 @@
+# Nextflow run artifacts
+work/
+.nextflow/
+.nextflow.log
+.nextflow.log.*
+
+# Pipeline output directories
+test_results/
+results/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.pytest_cache/
+
+# Conda
+.conda/
+
+# macOS
+.DS_Store
