@@ -1,121 +1,179 @@
 # Strainify
 <p align="center">
-  <img src="images/Strainify_logo.png" alt="Strainify diagram" width="50%">
+  <img src="images/Strainify_logo.png" alt="Strainify logo" width="50%">
 </p>
-
 
 Strainify is an accurate strain-level abundance analysis tool for short-read metagenomics.
 
 ## Strainify Workflow
 <p align="center">
-  <img src="images/Strainify_workflow.png" alt="Strainify diagram" width="100%">
+  <img src="images/Strainify_workflow.png" alt="Strainify workflow diagram" width="100%">
 </p>
 
 ## Installation
 
+### Option 1 – conda / bioconda (recommended)
 
-### Clone the repository
+```bash
+conda install -c bioconda -c conda-forge strainify
+```
+
+> Once the bioconda recipe is merged this will install the `strainify` command
+> directly onto your `$PATH`.
+
+### Option 2 – from source (developer / pre-release)
 
 ```bash
 git clone https://github.com/treangenlab/Strainify.git
 cd Strainify
-```
 
-### Set up conda environment
-```bash
-# For Linux:
-conda env create -f environment.yaml
-
-# Activate conda environment
+# Create the conda environment (Linux / macOS)
+conda env create -f environment.yml
 conda activate strainify
+
+# Run directly from the repository root
+./strainify --help
 ```
+
+Nextflow v26+ with Java 17+ is required. Nextflow is included in `environment.yml`.
+
+---
 
 ## Usage
-Strainify uses a `config.yaml` file to manage input files and parameters.
 
-### Parameters
-These fields can be set in `config.yaml`:
+All parameters are passed as Nextflow `--param` flags. No YAML config file is required, though
+you can use Nextflow's built-in `-params-file params.yml` for reproducibility.
 
-| Parameter                  | Description                                                                                                         | Default                         | Accepted Values                              |
-|----------------------------|---------------------------------------------------------------------------------------------------------------------|----------------------------------|-----------------------------------------------|
-| `genome_folder`            | **(Required)** Path to the folder containing reference genome files (FASTA format).                                                | —                                | A valid directory path                        |
-| `fastq_folder`             | **(Required)** Path to the folder containing input FASTQ files (must be unzipped and named using `*_r1.fq`, `*_r2.fq`). Multiple samples can be added to this folder (for paired-end reads, make sure the two FASTQ files for each sample have matching names).             | —                                | A valid directory path                        |
-| `output_dir`               | **(Required)** Directory where all output files will be saved.                                                                     | —                       | A valid directory path                        |
-| `read_type`                | Type of sequencing reads.                                                                                           | `paired`                         | `paired` or `single`                          |
-| `window_size`              | Size of the genomic window for variant grouping. Can also be set to `average_LCB_length` to use the average length of local colinear blocks from Parsnp. | `500`                            | Any positive integer or `average_LCB_length` |
-| `window_overlap`           | Proportion of overlap between consecutive windows.                                                                  | `0`                              | Float between `0` and `1` (e.g., `0.5`)       |
-| `weight_by_entropy`        | Whether to weight variants by their Shannon entropy when estimating strain abundances.                              | `false`                          | `true` or `false`                             |
-| `use_precomputed_variants`| Use existing filtered variant matrix instead of recomputing from scratch.                                           | `false`                          | `true` or `false`                             |
-| `precomputed_output_dir`  | Path to directory where new output will be saved.                                                        | `output_dir/precomputed_results` | A valid directory path                        |
-| `parsnp_flags`  | Parsnp flags                                                        | `-c` (force inclusion of all genomes) | Valid Parsnp flags (see `parsnp -h` for available parameters)                        |
-| `filter_off`  | Option to turn off the recombination filter (recommended when input genomes differ by less than 500 variants to maximize Strainify's resolution)                                                       | `false`  | `true` or `false`                        |
-| `bootstrap`  | Run bootstrapping to estimate uncertainty (95% confidence intervals)                                                        | —  | If the `--bootstrap` flag is provided to the `bootstrap` parameter, bootstrapping will be applied when computing relative abundances. Bootstrap iterations can be set via the `--bootstrap_iterations` flag (default: 100)                        |
+### Basic run (paired-end reads)
 
-
-### Edit the `config.yaml`
-Open `config.yaml` in a text editor. Modify the fields to match your input and desired options. Example:
-
-```yaml
-genome_folder: path/to/genomes
-output_dir: path/to/output
-fastq_folder: path/to/fastqs
-read_type: paired
-modify_windows: --window_size 500 --window_overlap 0
-weight_by_entropy: false
-use_precomputed_variants: false
-parsnp_flags: -c
-filter_off: false
-#bootstrap: --bootstrap --bootstrap_iterations 100
-precomputed_output_dir: path/to/new_output
-```
-
-### Running Strainify
 ```bash
-./strainify run --cores 12 --configfile config.yaml
+strainify \
+  --genome_folder path/to/genomes \
+  --fastq_folder  path/to/fastqs \
+  --outdir        results \
+  -profile conda
 ```
->Tip: Replace `12` with the number of CPU cores you want to allocate.
->You can set `--cores` to any positive integer, depending on your system’s available resources.
 
-If you prefer not to use a config file, you can also pass everything to Strainify via `--config`. Example:
+### Single-end reads
+
 ```bash
-./strainify run --cores 12 \
-  --config genome_folder=path/to/genomes output_dir=path/to/output fastq_folder=path/to/fastqs
+strainify \
+  --genome_folder path/to/genomes \
+  --fastq_folder  path/to/fastqs \
+  --read_type     single \
+  --outdir        results
 ```
 
+### Pre-filter genomes before running
 
-### Running Strainify with pre-filtered reference genomes
-If you suspect that some of your input reference genomes might not actually be present in the metagenomic samples you are analyzing, we recommend pre-filtering the reference genomes to avoid potential false positives in Strainify's output. This step will concatenate all input reference FASTAs into one, and map the FASTQ reads to this concatenated FASTA. After filtering for high confidence, uniquely mapped reads, the genomes in the original set of FASTAs that have zero reads mapped to them will be discarded (they are unlikely to be present in the metagenomic data). 
+If you suspect some reference genomes are absent from the metagenome, use `prefilter-run` to
+remove zero-coverage genomes first:
 
-The following command will run the pre-filtering step and then run Strainify with only genomes that passed the filter:
 ```bash
-./strainify filter-run \
-  --genomes /path/to/genomes \
-  --fastqs /path/to/fastqs \
-  --out /path/to/output \
-  --configfile /path/to/config.yaml \
-  --config <key1=value1 key2=value2 ...>
-  --threads 12
+strainify prefilter-run \
+  --genome_folder path/to/genomes \
+  --fastq_folder  path/to/fastqs \
+  --outdir        results
 ```
-A config file is required here, but specific parameters can be overridden via `--config`. Refer to `./strainify filter-run --help` for more details on usage. 
 
->Tip: `--out` points to the directory for the pre-filtering step's output. Within this directory, the subfolder `filtered_genomes` contains the genomes that passed the filter, and the file `genomes_with_zero_coverage_across_all_samples.txt` contains the names of genomes that did not pass the filter. 
+Filtered genomes are written to `results/prefilter/filtered_genomes/`.
 
+### Use precomputed variants (re-run with new samples)
+
+If you already have `filtered_variant_matrix.csv`, `reference.fna`, and `sites.txt` from a
+previous run, skip the parsnp step:
+
+```bash
+strainify \
+  --genome_folder          path/to/genomes \
+  --fastq_folder           path/to/new_fastqs \
+  --use_precomputed_variants \
+  --precomputed_dir        path/to/previous_results \
+  --outdir                 new_results
+```
+
+---
+
+## Parameters
+
+| Parameter | Description | Default |
+|---|---|---|
+| `--genome_folder` | **(required)** Directory of reference genome FASTA files (`.fna`, `.fa`, `.fasta`) | — |
+| `--fastq_folder` | **(required)** Directory of FASTQ files. Paired-end: `*_r1.fq[.gz]` / `*_r2.fq[.gz]`. Single-end: `*.fq[.gz]` | — |
+| `--outdir` | Output directory | `results` |
+| `--read_type` | `paired` or `single` | `paired` |
+| `--parsnp_flags` | Extra flags passed to parsnp | `-c` |
+| `--window_size` | Window size for variant filtering (positive integer or `average_LCB_length`) | `500` |
+| `--window_overlap` | Overlap fraction between windows (0–1) | `0` |
+| `--filter_off` | Skip the recombination filter (recommended when genomes differ by <500 variants) | `false` |
+| `--weight_by_entropy` | Weight variants by Shannon entropy when estimating abundances | `false` |
+| `--bootstrap` | Compute 95% bootstrap confidence intervals | `false` |
+| `--bootstrap_iterations` | Number of bootstrap iterations | `100` |
+| `--use_precomputed_variants` | Skip parsnp/variant-filtering; use existing outputs | `false` |
+| `--precomputed_dir` | Directory containing `filtered_variant_matrix.csv`, `reference.fna`, `sites.txt` | — |
+| `--prefilter` | Pre-filter genomes by coverage before the main run | `false` |
+
+### Profiles (`-profile`)
+
+| Profile | Description |
+|---|---|
+| `standard` | Local execution (default) |
+| `conda` | Activates conda environment defined in `environment.yml` |
+| `test` | Runs against the bundled `example/` data |
+
+### Controlling resources
+
+```bash
+# Cap to 8 CPUs and 64 GB RAM
+strainify ... --max_cpus 8 --max_memory 64.GB
+```
+
+---
+
+## Output
+
+| File / Directory | Description |
+|---|---|
+| `renamed_genomes/` | Reference genomes with sanitised FASTA headers |
+| `parsnp_results/parsnp.maf` | Whole-genome alignment (MAF format) |
+| `parsnp_results/merged.vcf` | Multi-sample VCF |
+| `filtered_variant_matrix.csv` | Filtered bi-allelic variant matrix |
+| `significantly_enriched_windows.tsv` | Putative recombinant windows |
+| `sites.txt` | Variant positions used for read counting |
+| `reference.fna` | Reference genome used for mapping |
+| `mapped_reads/*.sam` | Per-sample SAM alignments |
+| `mapped_reads/*_sorted.bam` | Filtered, sorted BAM files |
+| `read_counts/*_read_counts.tsv` | Per-site read counts per sample |
+| `abundance_estimates_combined.csv` | **Main output** – relative strain abundances |
+| `abundance_estimates_bootstrap_CIs.csv` | Bootstrap 95% CIs (only with `--bootstrap`) |
+| `pipeline_info/` | Nextflow execution reports, timeline, and trace |
+
+---
 
 ## Tutorial / Examples
 
-For step-by-step instructions using example data, see the tutorial:
+For step-by-step instructions using the example data, see:
 
 [Strainify Tutorial](documentation/tutorial.md)
 
+Run the test profile to verify your installation:
+
+```bash
+strainify -profile test,conda
+```
+
+---
 
 ## Reproducing paper analyses
-Please refer to the scripts and documentation in this repository:
-https://github.com/treangenlab/Strainify_paper
-## Strainify Preprint
-Strainify: Strain-Level Microbiome Profiling for Low-Coverage Short-Read Metagenomic Datasets
-https://www.biorxiv.org/content/10.1101/2025.10.10.681738v2
+
+See the scripts and documentation at:
+<https://github.com/treangenlab/Strainify_paper>
+
+## Preprint
+
+Strainify: Strain-Level Microbiome Profiling for Low-Coverage Short-Read Metagenomic Datasets  
+<https://www.biorxiv.org/content/10.1101/2025.10.10.681738v2>
 
 ## Questions / Contact
 
 For questions or suggestions, open an issue or contact Rossie Luo at [rl152@rice.edu](mailto:rl152@rice.edu).
-

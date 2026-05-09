@@ -6,19 +6,21 @@ dependencies:
   - python=3.12
   - pip
 
-  # workflow / CLI
-  - snakemake=9.3
-  - typer=0.15
-  - pyyaml=6.0
+  # Workflow engine
+  - nextflow>=26.04
+
+  # Python packages
+  - biopython=1.85
   - pandas=2.2
   - numpy=2.2
   - psutil=7.0
-  - biopython=1.85
   - pulp=2.8
   - coincbc
   - pytest=8.3
+  - tqdm=4.67
+  - pyyaml=6.0
 
-  # bioinformatics tools
+  # Bioinformatics tools
   - bcftools=1.21
   - samtools=1.21
   - htslib=1.21
@@ -33,14 +35,6 @@ dependencies:
   - raxml=8.2.13
   - wgatools=1.1.0
   - parallel
-
-  # optional utilities used by snakemake or configs
-  - configargparse=1.7.1
-  - jinja2=3.1
-  - jsonschema=4.23
-  - tabulate=0.9
-  - tqdm=4.67
-  - gitpython=3.1
 
   - pip:
       - clarabel==0.10.0

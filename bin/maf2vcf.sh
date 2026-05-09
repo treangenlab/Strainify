@@ -35,8 +35,11 @@ add_contigs_to_header () {
 }
 export -f add_contigs_to_header  
 
-# Get sample names from MAF 
-mapfile -t SAMPLES < <(grep "^s" "$MAF" | cut -f2 | cut -f1 -d'#' | sort -u)
+# Get sample names from MAF (bash 3.2-compatible, no mapfile)
+SAMPLES=()
+while IFS= read -r line; do
+    SAMPLES+=("$line")
+done < <(grep "^s" "$MAF" | cut -f2 | cut -f1 -d'#' | sort -u)
 
 parallel --jobs "$THREADS" --halt now,fail=1 '
   set -euo pipefail
@@ -67,7 +70,7 @@ bcftools merge vcfs/*.vcf.gz -o merged.vcf.gz -O z --threads "$THREADS"
 bcftools index -f merged.vcf.gz
 
 bcftools annotate --remove FORMAT/QI merged.vcf.gz -o merged.vcf
-sed -E -i.bak 's#\./\.#0#g; s#([0-9])\|\1#1#g' merged.vcf
+sed -i.bak 's#\./\.#0#g; s#\([0-9]\)|\1#1#g' merged.vcf
 
 rm -rf vcfs
 rm -f merged.vcf.gz merged.vcf.gz.csi merged.vcf.bak

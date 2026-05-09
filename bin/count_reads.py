@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import pysam
 import pandas as pd
 from collections import Counter

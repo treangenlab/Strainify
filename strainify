@@ -1,85 +1,89 @@
 #!/usr/bin/env bash
+# strainify – Nextflow launcher for Strainify
+# Works when called from:
+#   1. A conda-installed prefix  ($PREFIX/bin/strainify -> $PREFIX/share/strainify/main.nf)
+#   2. A git checkout            (./strainify -> ./main.nf next to this script)
+#   3. Any custom location       (set STRAINIFY_PIPELINE_DIR to override)
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SNAKEFILE="$SCRIPT_DIR/Snakefile"
-FILTER_SCRIPT="$SCRIPT_DIR/filter_genomes.sh"
+# Resolve the directory that contains THIS script, following symlinks.
+_SELF="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
+
+# Locate the pipeline directory.
+if [[ -n "${STRAINIFY_PIPELINE_DIR:-}" ]]; then
+    PIPELINE_DIR="$STRAINIFY_PIPELINE_DIR"
+elif [[ -f "$_SELF/main.nf" ]]; then
+    # git-clone / developer checkout: script lives next to main.nf
+    PIPELINE_DIR="$_SELF"
+elif [[ -f "$_SELF/../share/strainify/main.nf" ]]; then
+    # conda-installed: bin/ is a sibling of share/
+    PIPELINE_DIR="$(cd "$_SELF/../share/strainify" && pwd)"
+else
+    echo "ERROR: Cannot find main.nf. Set STRAINIFY_PIPELINE_DIR or reinstall Strainify." >&2
+    exit 1
+fi
 
 usage() {
     cat <<EOF
-Strainify CLI
+Strainify ${STRAINIFY_VERSION:-}
 
 Usage:
-  strainify run [snakemake args...]
-  strainify filter-run [filter args...]
+  strainify [nextflow options] --genome_folder <dir> --fastq_folder <dir> [params...]
+  strainify run        [nextflow options] [params...]   # explicit run subcommand
+  strainify prefilter-run [nextflow options] [params...] # run with genome prefiltering
+  strainify version | -v | --version
+  strainify help    | -h | --help
 
-Commands:
-  run
-      Run Snakemake pipeline directly
+Any argument not listed above is passed directly to 'nextflow run'.
 
-      Example:
-        strainify run --cores 12 --configfile config.yaml
+Common params:
+  --genome_folder   DIR   Reference genomes (.fna / .fa / .fasta)
+  --fastq_folder    DIR   FASTQ files
+  --outdir          DIR   Output directory (default: results)
+  --read_type       STR   paired (default) or single
+  -profile          STR   standard (default), test, conda
 
-  filter-run
-      Run genome filtering + pipeline
+Examples:
+  # Basic run (paired-end, 12 threads)
+  strainify --genome_folder genomes/ --fastq_folder fastqs/ -profile conda
 
-      Example:
-        strainify filter-run \\
-          --genomes genomes \\
-          --fastqs fastqs \\
-          --out results \\
-          --config config.yaml \\
-          --threads 12
+  # With precomputed variants
+  strainify --genome_folder genomes/ --fastq_folder fastqs/ \\
+            --use_precomputed_variants --precomputed_dir prev_results/
 
-  help
-      Show this message
+  # Pre-filter genomes before strainifying
+  strainify prefilter-run --genome_folder genomes/ --fastq_folder fastqs/
 EOF
-    exit 1
+    exit 0
 }
 
-# ----------------------------
-# Parse command
-# ----------------------------
-if [[ $# -lt 1 ]]; then
-    usage
-fi
+NXF="${NEXTFLOW:-nextflow}"
 
-CMD="$1"
-shift
-
+CMD="${1:-}"
 case "$CMD" in
     run)
-        if [[ ! -f "$SNAKEFILE" ]]; then
-            echo "ERROR: Snakefile not found at $SNAKEFILE" >&2
-            exit 1
-        fi
-
-        snakemake --snakefile "$SNAKEFILE" "$@"
+        shift
+        exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
         ;;
-
-    filter-run)
-        if [[ ! -f "$FILTER_SCRIPT" ]]; then
-            echo "ERROR: filter script not found: $FILTER_SCRIPT" >&2
-            exit 1
-        fi
-
-        # auto-fix permissions if needed
-        if [[ ! -x "$FILTER_SCRIPT" ]]; then
-            chmod +x "$FILTER_SCRIPT" || {
-                echo "ERROR: Could not make filter script executable" >&2
-                exit 1
-            }
-        fi
-
-        "$FILTER_SCRIPT" "$@"
+    prefilter-run)
+        shift
+        exec "$NXF" run "$PIPELINE_DIR/main.nf" --prefilter "$@"
         ;;
-
+    version|-v|--version)
+        exec "$NXF" -version
+        ;;
     help|-h|--help)
         usage
         ;;
-
-    *)
-        echo "ERROR: Unknown command: $CMD" >&2
+    -*)
+        # Bare nextflow flags / params passed directly (most common invocation)
+        exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
+        ;;
+    "")
         usage
+        ;;
+    *)
+        # Anything unrecognised: forward straight to nextflow run
+        exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
         ;;
 esac
