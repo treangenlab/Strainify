@@ -12,17 +12,6 @@ Strainify is an accurate strain-level abundance analysis tool for short-read met
 
 ## Installation
 
-### Option 1 – conda / bioconda (recommended)
-
-```bash
-conda install -c bioconda -c conda-forge strainify
-```
-
-> Once the bioconda recipe is merged this will install the `strainify` command
-> directly onto your `$PATH`.
-
-### Option 2 – from source (developer / pre-release)
-
 ```bash
 git clone https://github.com/treangenlab/Strainify.git
 cd Strainify
@@ -34,8 +23,6 @@ conda activate strainify
 # Run directly from the repository root
 ./strainify --help
 ```
-
-Nextflow v26+ with Java 17+ is required. Nextflow is included in `environment.yml`.
 
 ---
 
