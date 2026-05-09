@@ -24,6 +24,20 @@ conda activate strainify
 ./strainify --help
 ```
 
+> **macOS (Apple Silicon) note:** `parsnp` and `harvesttools` do not yet have
+> native `osx-arm64` builds. Conda must resolve them through Rosetta 2 using
+> the `osx-64` sub-architecture. Set this before creating the environment and
+> keep it in your shell profile:
+>
+> ```bash
+> export CONDA_SUBDIR=osx-64
+> conda env create -f environment.yml
+> ```
+>
+> To persist across sessions, add `export CONDA_SUBDIR=osx-64` to your
+> `~/.zshrc` (or `~/.bash_profile`). Rosetta 2 must be installed
+> (`softwareupdate --install-rosetta`).
+
 ---
 
 ## Usage
