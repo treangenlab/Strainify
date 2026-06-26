@@ -8,50 +8,36 @@
 
 
 ## Running Strainify without a precomputed variant matrix
-Strainify includes example input data to help you get started quickly. To run the pipeline on the example data:
+Strainify includes example input data to help you get started quickly. 
 
-1. Unzip the compressed FASTQ files. The following command line can be used for Linux systems. 
+Build and activate the environment once (see the README), then run Strainify on the paired-end
+example data. 
+
 ```bash
-gunzip example/fastqs/paired/*.gz
-gunzip example/fastqs/single/*.gz
+conda activate strainify
+./strainify run \
+  --genome_folder example/genomes \
+  --fastq_folder  example/fastqs/paired \
+  --outdir        example/results
 ```
-
-2. Make sure your `config.yaml` is set like this:
-
-```yaml
-genome_folder: example/genomes
-fastq_folder: example/fastqs/paired
-output_dir: example/results
-read_type: paired
-modify_windows: --window_size 500 --window_overlap 0
-weight_by_entropy: false
-use_precomputed_variants: false
-```
-
-3. Run Strainify:
-```bash
-./strainify run --cores 12 --configfile config.yaml
-```
-The output will be written to the `example/results` directory.
+`paired` is the default read type, so `--read_type` is omitted here; for single-end data pass
+`--read_type single` (as in the next section). The output is written to `example/results`.
 
 ## Running Strainify with a precomputed variant matrix
-If you are running Strainify again on the same set of genomes, you can use the precomputed variant matrix by doing the following:
+If you are running Strainify again on the same set of genomes, you can reuse the precomputed
+variant matrix by passing `--use_precomputed_variants` along with `--precomputed_dir` (the
+directory that **contains** the previous run's `filtered_variant_matrix.csv`, `reference.fna`,
+and `sites.txt`) and a fresh `--outdir` for the new results. Reusing the matrix from the
+previous example:
 
-1. In the `config.yaml` file, set `use_precomputed_variants` to `true` and `precomputed_output_dir` to your desired directory for storing the new output. If you do not provide a path for `precomputed_output_dir`, your output directory will be automatically set to `output_dir/precomputed_results`. Make sure you set `output_dir` to the directory that contains the precomputed variant matrix. For example, let's use the variant matrix from the previous example, and the `config.yaml` file would look like this:
-
-```yaml
-genome_folder: example/genomes
-fastq_folder: example/fastqs/single
-output_dir: example/results
-read_type: single
-modify_windows: --window_size 500 --window_overlap 0
-weight_by_entropy: false
-use_precomputed_variants: true
-precomputed_output_dir: example/new_output
-```
-2. Run Strainify:
 ```bash
-./strainify run --cores 12 --configfile config.yaml
+./strainify run \
+  --genome_folder example/genomes \
+  --fastq_folder  example/fastqs/single \
+  --read_type     single \
+  --use_precomputed_variants \
+  --precomputed_dir example/results \
+  --outdir          example/new_output
 ```
 The output will be written to the `example/new_output` directory.
 
@@ -95,5 +81,69 @@ TreeCluster.py -i parsnp.tree -m max_clade -t 0.001 -o clusters.tsv
 You can then select a representative genome from each cluster and provide them to Strainify. Strainify will then estimate relative abundances at the cluster level.
 
 ## Unknown strains in metagenomic samples
-When strains in a metagenomic sample to be analyzed are unknown (i.e. reference genomes are not available), Strainify can be paired with an upstream strain identification tool such as [StrainGST](https://strainge.readthedocs.io/en/latest/straingst.html). Just run the upstream tool and collect the genomes that it identified in your metagenomic samples, and then run Strainify with these genomes as references. For longitudinal/time-series studies, we recommend running the upstream tool on metagenomic samples from <i>all</i> timepoints, and provide <i>all</i> of the identified genomes to Strainify. 
+When strains in a metagenomic sample to be analyzed are unknown (i.e. reference genomes are not available), Strainify can be paired with an upstream strain identification tool such as [StrainGST](https://strainge.readthedocs.io/en/latest/straingst.html). Just run the upstream tool and collect the genomes that it identified in your metagenomic samples, and then run Strainify with these genomes as references. For longitudinal/time-series studies, we recommend running the upstream tool on metagenomic samples from <i>all</i> timepoints, and provide <i>all</i> of the identified genomes to Strainify.
 
+### Using the bundled StrainGST helper scripts
+
+Two helper scripts in `helpers/` automate the StrainGST hand-off.
+
+> **You must install [StrainGE](https://github.com/broadinstitute/StrainGE) yourself.** Install it in a **separate conda environment** and
+> **activate that environment before running these scripts** (the NCBI download route also needs
+> `ncbi-genome-download` in that environment). If you'd rather not activate it, the scripts accept
+> the optional `--strainge-env <name>` (and `--download-env <name>` for the NCBI step) to run the
+> tools in the named env via `conda run -n` instead.
+
+**1. Build a StrainGST database (one-time).** Either download reference genomes from NCBI by
+genus/species, or point at a folder of genomes you already have:
+
+```bash
+# from NCBI:
+helpers/build_straingst_db.sh \
+  --taxa "Escherichia,Shigella" \
+  --threads 16 --outdir straingst_db
+
+# or from a custom genome folder:
+helpers/build_straingst_db.sh \
+  --genome-folder my_reference_genomes/ \
+  --outdir straingst_db
+```
+
+This produces `straingst_db/pan-genome-db.hdf5` (the database) and `straingst_db/db/` (the
+reference genomes). Tune with `--kmer-size`, `--cluster-jaccard`, and `--cluster-subset`
+(run with `--help` for all options).
+
+**2. Discover strains per sample and collect their genomes.** Run StrainGST on your FASTQs; for
+each sample it lists the discovered strains and copies their genome FASTAs into a folder ready
+for Strainify:
+
+```bash
+helpers/run_straingst.sh \
+  --db      straingst_db/pan-genome-db.hdf5 \
+  --ref-dir straingst_db \
+  --fastq-folder path/to/fastqs --read-type single \
+  --outdir straingst_results
+```
+
+For each `<sample>` this writes `straingst_results/<sample>/<sample>.strains.txt` (the discovered
+strains), a combined `straingst_results/discovered_strains.tsv` summary, and
+`straingst_results/<sample>/genomes/` (the genome FASTAs).
+
+StrainGST parameters are fully tunable: pass any `straingst run` flags through `--run-args "..."`
+(for example `-i` to cap how many strains are reported, or `--minscore` to raise the minimum
+score), any `straingst kmerize` flags through `--kmerize-args "..."`, and set the k-mer size with
+`--kmer-size` (it must match the database). Run the script with `--help` for the full list.
+
+**3. Run Strainify on the discovered genomes.** Point `--genome_folder` at a sample's collected
+genomes:
+
+```bash
+conda activate strainify
+./strainify run \
+  --genome_folder straingst_results/<sample>/genomes \
+  --fastq_folder  path/to/fastqs \
+  --read_type     single \
+  --outdir        results/<sample>
+```
+
+For longitudinal/time-series studies, pool the genomes discovered across *all* timepoints into a
+single folder and pass that to Strainify, so every timepoint is profiled against the same strain set.

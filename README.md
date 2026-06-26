@@ -51,8 +51,7 @@ you can use Nextflow's built-in `-params-file params.yml` for reproducibility.
 strainify \
   --genome_folder path/to/genomes \
   --fastq_folder  path/to/fastqs \
-  --outdir        results \
-  -profile conda
+  --outdir        results
 ```
 
 ### Single-end reads
@@ -65,19 +64,25 @@ strainify \
   --outdir        results
 ```
 
-### Pre-filter genomes before running
+### Pre-filter genomes with MAGNET (`filter-run`)
 
-If you suspect some reference genomes are absent from the metagenome, use `prefilter-run` to
-remove zero-coverage genomes first:
+If you suspect some reference genomes are absent from the metagenome, use `filter-run`. It runs
+MAGNET to keep only the genomes called **present** in each sample, then runs Strainify on those
+genomes — in a single command. Point `--fastq_folder` at a folder of sets (they share one
+build-once index) or give a single set with `--fastq1`/`--fastq2`:
 
 ```bash
-strainify prefilter-run \
-  --genome_folder path/to/genomes \
-  --fastq_folder  path/to/fastqs \
-  --outdir        results
+strainify filter-run \
+  --genome_folder  path/to/genomes \
+  --fastq_folder   path/to/fastqs \
+  --magnet_ref_dir shared_panel \
+  --outdir         results
 ```
 
-Filtered genomes are written to `results/prefilter/filtered_genomes/`.
+Each sample's results go under `results/<sample>/`, with MAGNET's present/absent calls and the
+genomes it kept under `results/<sample>/magnet/<sample>/`. (`--magnet_ref_dir` is optional — it
+defaults to a path under the launch directory — but setting it is recommended so every set
+reuses the same build-once index.)
 
 ### Use precomputed variants (re-run with new samples)
 
@@ -112,14 +117,17 @@ strainify \
 | `--bootstrap_iterations` | Number of bootstrap iterations | `100` |
 | `--use_precomputed_variants` | Skip parsnp/variant-filtering; use existing outputs | `false` |
 | `--precomputed_dir` | Directory containing `filtered_variant_matrix.csv`, `reference.fna`, `sites.txt` | — |
-| `--prefilter` | Pre-filter genomes by coverage before the main run | `false` |
+| `--prefilter` | Enable the MAGNET present/absent genome prefilter (set automatically by the `filter-run` command) | `false` |
 
 ### Profiles (`-profile`)
 
+Strainify runs the tools from your **active conda environment** (built once from
+`environment.yml` — see [Installation](#installation)), so a normal run needs no
+`-profile` at all.
+
 | Profile | Description |
 |---|---|
-| `standard` | Local execution (default) |
-| `conda` | Activates conda environment defined in `environment.yml` |
+| `standard` | Local execution from your active environment (default; applied automatically) |
 | `test` | Runs against the bundled `example/` data |
 
 ### Controlling resources
@@ -131,36 +139,16 @@ strainify ... --max_cpus 8 --max_memory 64.GB
 
 ---
 
-## Output
-
-| File / Directory | Description |
-|---|---|
-| `renamed_genomes/` | Reference genomes with sanitised FASTA headers |
-| `parsnp_results/parsnp.maf` | Whole-genome alignment (MAF format) |
-| `parsnp_results/merged.vcf` | Multi-sample VCF |
-| `filtered_variant_matrix.csv` | Filtered bi-allelic variant matrix |
-| `significantly_enriched_windows.tsv` | Putative recombinant windows |
-| `sites.txt` | Variant positions used for read counting |
-| `reference.fna` | Reference genome used for mapping |
-| `mapped_reads/*.sam` | Per-sample SAM alignments |
-| `mapped_reads/*_sorted.bam` | Filtered, sorted BAM files |
-| `read_counts/*_read_counts.tsv` | Per-site read counts per sample |
-| `abundance_estimates_combined.csv` | **Main output** – relative strain abundances |
-| `abundance_estimates_bootstrap_CIs.csv` | Bootstrap 95% CIs (only with `--bootstrap`) |
-| `pipeline_info/` | Nextflow execution reports, timeline, and trace |
-
----
-
 ## Tutorial / Examples
 
 For step-by-step instructions using the example data, see:
 
 [Strainify Tutorial](documentation/tutorial.md)
 
-Run the test profile to verify your installation:
+Run the test profile to verify your installation (from your activated environment):
 
 ```bash
-strainify -profile test,conda
+strainify -profile test
 ```
 
 ---
