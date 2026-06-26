@@ -15,7 +15,7 @@ example data.
 
 ```bash
 conda activate strainify
-./strainify run \
+./strainify \
   --genome_folder example/genomes \
   --fastq_folder  example/fastqs/paired \
   --outdir        example/results
@@ -31,7 +31,7 @@ and `sites.txt`) and a fresh `--outdir` for the new results. Reusing the matrix 
 previous example:
 
 ```bash
-./strainify run \
+./strainify \
   --genome_folder example/genomes \
   --fastq_folder  example/fastqs/single \
   --read_type     single \

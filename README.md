@@ -48,7 +48,7 @@ you can use Nextflow's built-in `-params-file params.yml` for reproducibility.
 ### Basic run (paired-end reads)
 
 ```bash
-strainify \
+./strainify \
   --genome_folder path/to/genomes \
   --fastq_folder  path/to/fastqs \
   --outdir        results
@@ -57,7 +57,7 @@ strainify \
 ### Single-end reads
 
 ```bash
-strainify \
+./strainify \
   --genome_folder path/to/genomes \
   --fastq_folder  path/to/fastqs \
   --read_type     single \
@@ -72,7 +72,7 @@ genomes — in a single command. Point `--fastq_folder` at a folder of sets (the
 build-once index) or give a single set with `--fastq1`/`--fastq2`:
 
 ```bash
-strainify filter-run \
+./strainify filter-run \
   --genome_folder  path/to/genomes \
   --fastq_folder   path/to/fastqs \
   --magnet_ref_dir shared_panel \
@@ -90,7 +90,7 @@ If you already have `filtered_variant_matrix.csv`, `reference.fna`, and `sites.t
 previous run, skip the parsnp step:
 
 ```bash
-strainify \
+./strainify \
   --genome_folder          path/to/genomes \
   --fastq_folder           path/to/new_fastqs \
   --use_precomputed_variants \
@@ -134,7 +134,7 @@ Strainify runs the tools from your **active conda environment** (built once from
 
 ```bash
 # Cap to 8 CPUs and 64 GB RAM
-strainify ... --max_cpus 8 --max_memory 64.GB
+./strainify ... --max_cpus 8 --max_memory 64.GB
 ```
 
 ---
@@ -148,7 +148,7 @@ For step-by-step instructions using the example data, see:
 Run the test profile to verify your installation (from your activated environment):
 
 ```bash
-strainify -profile test
+./strainify -profile test
 ```
 
 ---
