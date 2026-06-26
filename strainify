@@ -23,38 +23,199 @@ else
     exit 1
 fi
 
+# Resolve the Strainify version: explicit env override, else the VERSION file in
+# the pipeline dir, else `git describe` for a dev checkout, else 'unknown'.
+_strainify_version() {
+    if [[ -n "${STRAINIFY_VERSION:-}" ]]; then
+        printf '%s\n' "$STRAINIFY_VERSION"
+    elif [[ -f "$PIPELINE_DIR/VERSION" ]]; then
+        local v=""; IFS= read -r v < "$PIPELINE_DIR/VERSION" || true
+        printf '%s\n' "$v"
+    elif command -v git >/dev/null 2>&1 && git -C "$PIPELINE_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+        git -C "$PIPELINE_DIR" describe --tags --always --dirty 2>/dev/null || echo unknown
+    else
+        echo unknown
+    fi
+}
+
 usage() {
     cat <<EOF
-Strainify ${STRAINIFY_VERSION:-}
+Strainify $(_strainify_version)
 
 Usage:
-  strainify [nextflow options] --genome_folder <dir> --fastq_folder <dir> [params...]
-  strainify run        [nextflow options] [params...]   # explicit run subcommand
-  strainify prefilter-run [nextflow options] [params...] # run with genome prefiltering
+  strainify [run] [nextflow options] --genome_folder <dir> --fastq_folder <dir> [params...]
+                                                  # strainify only (no prefiltering)
+  strainify filter-run [params...]                # MAGNET prefilter + strainify
   strainify version | -v | --version
   strainify help    | -h | --help
+
+Two modes:
+  run         Strainify only. 'run' is optional -- bare args go here too.
+  filter-run  MAGNET genome prefiltering, then strainify on the genomes that
+              passed. Auto-detects from your input:
+                 --fastq_folder DIR  -> every set in the folder (shared index)
+                 --fastq1 FILE       -> a single set
 
 Any argument not listed above is passed directly to 'nextflow run'.
 
 Common params:
-  --genome_folder   DIR   Reference genomes (.fna / .fa / .fasta)
+  --genome_folder   DIR   Reference genomes (.fna / .fa / .fasta[.gz])
   --fastq_folder    DIR   FASTQ files
   --outdir          DIR   Output directory (default: results)
   --read_type       STR   paired (default) or single
   -profile          STR   standard (default), test, conda
 
+filter-run params (MAGNET):
+  --magnet_ref_dir  DIR   Persistent shared reference panel + build-once bwa index,
+                          reused across all sets. Optional: defaults to
+                          <launch_dir>/magnet_shared_reference. Set it to choose the
+                          location (recommended for distributed/cluster filesystems).
+  Single set only:
+  --fastq1          FILE  R1 (or the single-end fastq)
+  --fastq2          FILE  R2 (omit for single-end)
+  --sample_id       STR   Sample name (default: derived from --fastq1)
+
 Examples:
-  # Basic run (paired-end, 12 threads)
+  # Strainify only (paired-end)
   strainify --genome_folder genomes/ --fastq_folder fastqs/ -profile conda
 
-  # With precomputed variants
-  strainify --genome_folder genomes/ --fastq_folder fastqs/ \\
+  # Strainify only, with precomputed variants
+  strainify run --genome_folder genomes/ --fastq_folder fastqs/ \\
             --use_precomputed_variants --precomputed_dir prev_results/
 
-  # Pre-filter genomes before strainifying
-  strainify prefilter-run --genome_folder genomes/ --fastq_folder fastqs/
+  # Prefilter + strainify over a WHOLE FOLDER of fastq sets:
+  strainify filter-run --genome_folder genomes/ --fastq_folder fastqs/ \\
+            --magnet_ref_dir shared_panel/ --outdir results/ [--read_type single] \\
+            [-- -profile conda]      # args after -- go to each 'nextflow run'
+
+  # Prefilter + strainify for a SINGLE set (via --fastq1):
+  strainify filter-run --genome_folder genomes/ --magnet_ref_dir shared_panel/ \\
+            --fastq1 s1_R1.fq.gz --fastq2 s1_R2.fq.gz --sample_id s1
 EOF
     exit 0
+}
+
+# --- filter-run handlers (single set vs folder of sets, auto-selected) ---
+
+_filter_single() {
+    # ONE fastq set: thin passthrough to 'nextflow run main.nf --prefilter'.
+    exec "$NXF" run "$PIPELINE_DIR/main.nf" --prefilter "$@"
+}
+
+_filter_batch() {
+    # A FOLDER of sets: loop 'nextflow run main.nf --prefilter' once per set, all
+    # sharing the SAME build-once --magnet_ref_dir index (built on the first run,
+    # reused unchanged by the rest). This is the old bin/run_filter_batch.sh loop,
+    # folded in so there's no separate driver file to deploy.
+    #
+    # Consume the folder-level params; everything else -- and anything after a
+    # literal '--' -- is forwarded verbatim to each per-set 'nextflow run'
+    # (e.g. -profile conda, -ansi-log false, --magnet_min_covscore 0.5).
+    local GENOME_FOLDER="" FASTQ_FOLDER="" MAGNET_REF_DIR=""
+    local OUTDIR="results" READ_TYPE="paired"
+    local EXTRA=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --genome_folder)  GENOME_FOLDER="$2";  shift 2;;
+            --fastq_folder)   FASTQ_FOLDER="$2";   shift 2;;
+            --magnet_ref_dir) MAGNET_REF_DIR="$2"; shift 2;;
+            --outdir)         OUTDIR="$2";         shift 2;;
+            --read_type)      READ_TYPE="$2";      shift 2;;
+            --)               shift; EXTRA+=("$@"); break;;
+            *)                EXTRA+=("$1"); shift;;
+        esac
+    done
+
+    [[ -n "$GENOME_FOLDER" ]] || { echo "ERROR: filter-run (folder mode) needs --genome_folder <dir>" >&2; exit 2; }
+    [[ -n "$FASTQ_FOLDER"  ]] || { echo "ERROR: filter-run (folder mode) needs --fastq_folder <dir>"  >&2; exit 2; }
+
+    mkdir -p "$OUTDIR"
+    [[ -n "$MAGNET_REF_DIR" ]] && mkdir -p "$MAGNET_REF_DIR"
+
+    # One set -> one 'nextflow run main.nf --prefilter'. Sees this function's
+    # locals (GENOME_FOLDER, MAGNET_REF_DIR, OUTDIR, EXTRA) via bash dynamic scope.
+    _batch_run_one() {
+        local sample="$1" r1="$2" r2="${3:-}"
+        echo ">>> [$sample] MAGNET filter + strainify (shared index: ${MAGNET_REF_DIR:-<pipeline default under launch dir>})"
+        local args=(run "$PIPELINE_DIR/main.nf"
+            --prefilter
+            --genome_folder "$GENOME_FOLDER"
+            --sample_id "$sample"
+            --fastq1 "$r1"
+            --outdir "$OUTDIR/$sample")
+        [[ -n "$MAGNET_REF_DIR" ]] && args+=(--magnet_ref_dir "$MAGNET_REF_DIR")
+        [[ -n "$r2" ]] && args+=(--fastq2 "$r2")
+        [[ ${#EXTRA[@]} -gt 0 ]] && args+=("${EXTRA[@]}")
+        "$NXF" "${args[@]}"
+    }
+
+    local found=0 ok=0 r1 r2 sample
+    local failed=()
+    shopt -s nullglob
+    if [[ "$READ_TYPE" == "paired" ]]; then
+        # Match *_R1/_R2 and *_r1/_r2, .fq / .fastq, optionally .gz.
+        for r1 in "$FASTQ_FOLDER"/*_[rR]1.f*q "$FASTQ_FOLDER"/*_[rR]1.f*q.gz; do
+            [[ -e "$r1" ]] || continue
+            r2="${r1/_R1./_R2.}"; r2="${r2/_r1./_r2.}"
+            if [[ ! -e "$r2" ]]; then
+                echo "WARN: no mate found for $r1 (expected $r2); skipping" >&2
+                continue
+            fi
+            sample="$(basename "$r1")"; sample="${sample%%_[rR]1.*}"
+            found=$((found+1))
+            if _batch_run_one "$sample" "$r1" "$r2"; then
+                ok=$((ok+1))
+            else
+                echo "ERROR: [$sample] failed (exit $?); continuing with remaining sets" >&2
+                failed+=("$sample")
+            fi
+        done
+        [[ "$found" -gt 0 ]] || { echo "No paired fastq sets found in $FASTQ_FOLDER" >&2; exit 1; }
+    else
+        for r1 in "$FASTQ_FOLDER"/*.f*q "$FASTQ_FOLDER"/*.f*q.gz; do
+            [[ -e "$r1" ]] || continue
+            # Skip paired-looking files in single mode.
+            case "$(basename "$r1")" in *_[rR][12].*) continue;; esac
+            sample="$(basename "$r1")"; sample="${sample%.f*q}"; sample="${sample%.f*q.gz}"
+            found=$((found+1))
+            if _batch_run_one "$sample" "$r1"; then
+                ok=$((ok+1))
+            else
+                echo "ERROR: [$sample] failed (exit $?); continuing with remaining sets" >&2
+                failed+=("$sample")
+            fi
+        done
+        [[ "$found" -gt 0 ]] || { echo "No single-end fastq files found in $FASTQ_FOLDER" >&2; exit 1; }
+    fi
+
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        echo ">>> Done with failures: ${#failed[@]} of $found set(s) failed (${failed[*]}); $ok succeeded." >&2
+        echo ">>> Results for successful sets are under: $OUTDIR/<sample>/" >&2
+        exit 1
+    fi
+    echo ">>> All $found set(s) processed successfully. Results under: $OUTDIR/<sample>/"
+}
+
+_filter_auto() {
+    # Pick the mode from the inputs: --fastq_folder => batch, --fastq1 => single.
+    local has_folder="" has_single="" a
+    for a in "$@"; do
+        case "$a" in
+            --fastq_folder) has_folder=1;;
+            --fastq1)       has_single=1;;
+        esac
+    done
+    if [[ -n "$has_folder" && -n "$has_single" ]]; then
+        echo "ERROR: filter-run: pass either --fastq_folder (whole folder) OR --fastq1 (single set), not both." >&2
+        exit 2
+    elif [[ -n "$has_folder" ]]; then
+        _filter_batch "$@"
+    elif [[ -n "$has_single" ]]; then
+        _filter_single "$@"
+    else
+        echo "ERROR: filter-run needs --fastq_folder <dir> (a folder of sets) or --fastq1 <file> [--fastq2 <file>] (a single set)." >&2
+        exit 2
+    fi
 }
 
 NXF="${NEXTFLOW:-nextflow}"
@@ -65,12 +226,16 @@ case "$CMD" in
         shift
         exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
         ;;
-    prefilter-run)
+    filter-run)
+        # MAGNET prefilter + strainify. Auto-detects: --fastq_folder => every set
+        # in the folder (shared build-once index); --fastq1 => a single set.
         shift
-        exec "$NXF" run "$PIPELINE_DIR/main.nf" --prefilter "$@"
+        _filter_auto "$@"
         ;;
     version|-v|--version)
-        exec "$NXF" -version
+        echo "Strainify $(_strainify_version)"
+        "$NXF" -version
+        exit 0
         ;;
     help|-h|--help)
         usage

@@ -131,7 +131,9 @@ if __name__ == "__main__":
     variant_df = variant_df[~variant_df.duplicated(subset=['CHROM', 'POS'], keep="first")]
     variant_df.reset_index(drop=True, inplace=True)
     variant_df = variant_df.iloc[:, list(range(0, 5)) + list(range(9, variant_df.shape[1]))]
-    variant_df.iloc[:, 5:] = variant_df.iloc[:, 5:].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+    #variant_df.iloc[:, 5:] = variant_df.iloc[:, 5:].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+    _num_cols = variant_df.iloc[:, 5:].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+    variant_df = pd.concat([variant_df.iloc[:, :5], _num_cols], axis=1)
 
     total_variants = len(variant_df)
     genome_length = sum(all_intervals)

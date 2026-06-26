@@ -1,0 +1,21 @@
+ The output file `${output_dir}/taxonomic_identification/taxonomic_assignment/alignment.csv` summarizes results from reference inference, and contains following fields related to the reference genome that are being selected and the coverage information of the alignment steps.  
+
+| Relevant Mode | Field                 | Description                                                                                                                                                         | 
+|---------------|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------| 
+| ONT           | Taxonomy ID           |  The taxonomy ID of the species that users queries                                                                                                                  | 
+| ONT           | Assembly Accession ID |  The assembly accession ID of the genome that is being selected as reference genome for the alignment process                                                       | 
+| ONT           | Source Database       |  source of the assembly, part of the metadata from NCBI Database                                                                                                    | 
+| ONT           | Is Representative     |  Whether or not the assembly is labeled as representative genome in NCBI database                                                                                   | 
+| ONT           | Assembly Level        |  the assembly level of the assembly, can be one of the following                                                                                                    | 
+| ONT           | Organism of Assembly  |  The description of the assembly, may contain strain level information                                                                                              | 
+| ONT           | Species               |  taxonomy name of the species                                                                                                                                       |
+| ONT           | Downloaded            |  Whether the reference genome is successfully downloaded/found in local database                                                                                    |
+| ONT           | Breadth Coverage      |  The proportion of the genome has reads aligned                                                                                                                     | 
+| ONT           | Expected Coverage     |  An estimation of the expected breadth of coverage based on the assumption that the alignment of the read is randomly distributed along the entire reference genome | 
+| ONT           | Coverage Score        |  Breadth Coverage / Expected Coverage                                                                                                                               | 
+| ONT           | Depth Coverage        |  The mean depth of coverage, calculated with aligned regions only                                                                                                   | 
+| ONT           | BC2                   |  Breadth Coverage of the second round alignment                                                                                                                     | 
+| ONT           | EC2                   |  Expected Coverage of the second round alignment                                                                                                                    | 
+| ONT           | CS2                   |  BC2 / EC2                                                                                                                                                          | 
+| ONT           | DC2                   |  Depth Coverage of the second round alignment                                                                                                                       | 
+| ONT           | Consensus ANI         |  The ANI is calculated by comparing the consensus genome created by the second round alignment with the original reference genome. Unaligned regions are excluded.  | 

@@ -89,17 +89,25 @@ def process_sample(read_counts_path, df_AF, df_allele_freq, strain_names, strain
         return None  
 
     merged_ref_var['depth'] = merged_ref_var['count_x'] + merged_ref_var['count_y']
+
+    # These sites have depth = 0 and would produce 0/0 = NaN VAFs.
+    merged_ref_var = merged_ref_var[merged_ref_var['depth'] > 0].reset_index(drop=True)
+
+    if merged_ref_var.empty:
+        print(f"All positions filtered out for {read_counts_file} due to zero ref+alt depth")
+        return None 
+
     merged_ref_var['vaf_x'] = merged_ref_var['count_x'] / merged_ref_var['depth']
     merged_ref_var['vaf_y'] = merged_ref_var['count_y'] / merged_ref_var['depth']
 
-    merged_ref_var['depth'] = merged_ref_var['count_x'] + merged_ref_var['count_y']
+    # merged_ref_var['depth'] = merged_ref_var['count_x'] + merged_ref_var['count_y']
 
-    threshold = 0
-    merged_ref_var = merged_ref_var[merged_ref_var['depth'] >= threshold]
+    # threshold = 0
+    # merged_ref_var = merged_ref_var[merged_ref_var['depth'] >= threshold]
 
-    if merged_ref_var.empty:
-        print(f"All positions filtered out for {read_counts_file} due to low depth")
-        return None  
+    # if merged_ref_var.empty:
+    #     print(f"All positions filtered out for {read_counts_file} due to low depth")
+    #     return None  
 
     observed_ref_vector = merged_ref_var['vaf_x']
     observed_var_vector = merged_ref_var['vaf_y']

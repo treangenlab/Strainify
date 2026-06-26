@@ -1,0 +1,10 @@
+.ipynb_checkpoints/
+taxdump.tar.gz
+utils/__pycache__/
+utils/.ipynb_checkpoints/
+__pycache__/
+nohup.out
+dev.ipynb
+magnet.egg-info/
+within_cluster.ipynb
+magnet_strain.py

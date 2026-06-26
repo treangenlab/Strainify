@@ -1,0 +1,55 @@
+Taxonomy ID,Assembly Accession ID,Source Database,Is Representative,Assembly Level,Organism of Assembly,Strain,Total Length,Downloaded,Species
+2981768,GCF_020687335.1,SOURCE_DATABASE_REFSEQ,False,Contig,Anthropogastromicrobium aceti,CLA-AA-H224,3705574.0,True,Anthropogastromicrobium aceti
+2981770,GCF_020687225.1,SOURCE_DATABASE_REFSEQ,False,Contig,Gallintestinimicrobium propionicum,CLA-AA-H244,3620043.0,True,Gallintestinimicrobium propionicum
+33039,GCF_044591705.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,[Ruminococcus] torques,CIP112193,2979783.0,True,[Ruminococcus] torques
+46228,GCF_025152405.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,[Ruminococcus] lactaris ATCC 29176,ATCC 29176,2733858.0,True,[Ruminococcus] lactaris
+471189,GCF_000210055.1,SOURCE_DATABASE_REFSEQ,False,Chromosome,Gordonibacter pamelaeae 7-10-1-b,7-10-1-bT,3608022.0,True,Gordonibacter pamelaeae
+745368,GCF_016900095.1,SOURCE_DATABASE_REFSEQ,False,Contig,Gemmiger formicilis,An812,3257360.0,True,Gemmiger formicilis
+3078042,GCF_032490495.1,SOURCE_DATABASE_REFSEQ,False,Contig,Pilosibacter fragilis,CSJ-4,3742317.0,True,Pilosibacter fragilis
+1308,GCF_903886475.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Streptococcus thermophilus,,1791634.0,True,Streptococcus thermophilus
+649756,GCF_030864025.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Anaerostipes hadrus,BA1,2946270.0,True,Anaerostipes hadrus
+1851427,GCF_020687345.1,SOURCE_DATABASE_REFSEQ,False,Contig,Faecalibacterium butyricigenerans,CLA-AA-H233,2604869.0,True,Faecalibacterium butyricigenerans
+29348,GCF_025149465.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Thomasclavelia spiroformis DSM 1552,DSM 1552,2528470.0,True,Thomasclavelia spiroformis
+1851428,GCF_040094125.1,SOURCE_DATABASE_REFSEQ,False,Contig,Faecalibacterium longum,CLA-AA-H243,2951594.0,True,Faecalibacterium longum
+1982628,GCF_003024675.1,SOURCE_DATABASE_REFSEQ,False,Contig,Faecalibacillus faecis,SNUG30370,2525977.0,True,Faecalibacillus faecis
+46503,GCF_018289315.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Parabacteroides merdae,CL06T03C08,4799513.0,True,Parabacteroides merdae
+2606633,GCF_009696065.1,SOURCE_DATABASE_REFSEQ,False,Contig,Oliverpabstia intestinalis,BSM-380-WT-5A,3233390.0,True,Oliverpabstia intestinalis
+46506,GCF_020091485.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Bacteroides stercoris,BFG-121,3883826.0,True,Bacteroides stercoris
+218538,GCF_020564385.1,SOURCE_DATABASE_REFSEQ,False,Contig,Dialister invisus,SL.1.06,1783057.0,True,Dialister invisus
+2997294,GCF_027689445.1,SOURCE_DATABASE_REFSEQ,False,Scaffold,Gemmiger qucibialis,TM11-21A,3494751.0,True,Gemmiger qucibialis
+562,GCF_000008865.2,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Escherichia coli O157:H7 str. Sakai,Sakai substr. RIMD 0509952,5594605.0,True,Escherichia coli
+820,GCF_044361425.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Bacteroides uniformis,JCM5828,4709701.0,True,Bacteroides uniformis
+821,GCF_000012825.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Phocaeicola vulgatus ATCC 8482,ATCC 8482,5163189.0,True,Phocaeicola vulgatus
+1628085,GCF_040093675.1,SOURCE_DATABASE_REFSEQ,False,Contig,Agathobaculum butyriciproducens,CLA-AA-H270,2695431.0,True,Agathobaculum butyriciproducens
+823,GCF_018279895.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Parabacteroides distasonis,APCS2/PD,5348976.0,True,Parabacteroides distasonis
+2720821,,,,,,,,False,Candidatus Avimicrobium caecorum
+47678,GCF_018292205.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Bacteroides caccae CL03T12C61,CL03T12C61,5499725.0,True,Bacteroides caccae
+39486,GCF_025150245.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Dorea formicigenerans,ATCC 27755,3188304.0,True,Dorea formicigenerans
+39488,GCF_036419155.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Anaerobutyricum hallii,DFI.9.38,3664709.0,True,Anaerobutyricum hallii
+292800,GCF_010508875.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Flavonifractor plautii,JCM 32125,3985392.0,True,Flavonifractor plautii
+39491,GCF_022453685.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Agathobacter rectalis,VPI 0990,3451485.0,True,Agathobacter rectalis
+1981510,GCF_963360705.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Monoglobus pectinilyticus,Ruminococcaceae species TSDC17.2-1.2,2810259.0,True,Monoglobus pectinilyticus
+214856,GCF_022846055.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Alistipes finegoldii,CE91-St15,4117255.0,True,Alistipes finegoldii
+1358,GCF_003176835.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Lactococcus lactis subsp. lactis,14B4,2639081.0,True,Lactococcus lactis
+2929491,GCF_023347535.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Faecalibacterium wellingii,HTF-F,2776287.0,True,Faecalibacterium wellingii
+28116,GCF_001314995.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Bacteroides ovatus,ATCC 8483,6472489.0,True,Bacteroides ovatus
+28117,GCF_046603865.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Alistipes putredinis,SFAD35,2576134.0,True,Alistipes putredinis
+2916441,GCF_009755265.1,SOURCE_DATABASE_REFSEQ,False,Contig,Adlercreutzia rubneri,ResAG-91,2798076.0,True,Adlercreutzia rubneri
+1150298,GCF_013299895.1,SOURCE_DATABASE_REFSEQ,False,Contig,Fusicatenibacter saccharivorans,MSK.20.48,3481580.0,True,Fusicatenibacter saccharivorans
+411483,GCF_010509575.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Faecalibacterium duncaniae,JCM 31915,3102523.0,True,Faecalibacterium duncaniae
+40545,GCF_016724805.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Sutterella wadsworthensis,FDAARGOS_1159,3026517.0,True,Sutterella wadsworthensis
+3133155,GCF_040096575.1,SOURCE_DATABASE_REFSEQ,False,Contig,Faecalibacterium intestinale,CLA-AA-H281,2973806.0,True,Faecalibacterium intestinale
+3133161,GCF_040096285.1,SOURCE_DATABASE_REFSEQ,False,Contig,Ruminococcoides intestinihominis,CLA-AA-H171,2259502.0,True,Ruminococcoides intestinihominis
+2108523,GCF_022453915.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Lawsonibacter asaccharolyticus,OA10,3126090.0,True,Lawsonibacter asaccharolyticus
+2735723,GCF_024499545.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Turicibacter bilis,PIG517,2663111.0,True,Turicibacter bilis
+328813,GCF_006542645.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Alistipes onderdonkii subsp. vulgaris,3BBH6,3507492.0,True,Alistipes onderdonkii
+328814,GCF_025145845.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Alistipes shahii WAL 8301,WAL 8301,3809618.0,True,Alistipes shahii
+2211183,GCF_008121455.1,SOURCE_DATABASE_REFSEQ,False,Contig,Evtepia gabavorous,KLE1738,2494407.0,True,Evtepia gabavorous
+216816,GCF_000196555.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Bifidobacterium longum subsp. longum JCM 1217,JCM 1217,2385164.0,True,Bifidobacterium longum
+2885356,GCF_020687385.1,SOURCE_DATABASE_REFSEQ,False,Contig,Hominilimicola fabiformis,CLA-AA-H232,3087174.0,True,Hominilimicola fabiformis
+2885357,GCF_046197855.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Hominenteromicrobium mulieris,CIP112727,3184959.0,True,Hominenteromicrobium mulieris
+3030638,GCF_036632915.2,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Faecalibacterium taiwanense,HLW78,2955389.0,True,Faecalibacterium taiwanense
+3133164,GCF_040096225.1,SOURCE_DATABASE_REFSEQ,False,Contig,Hominiventricola aquisgranensis,CLA-AA-H78B,3174899.0,True,Hominiventricola aquisgranensis
+301301,GCF_000225345.1,SOURCE_DATABASE_REFSEQ,True,Complete Genome,Roseburia hominis A2-183,A2-183,3592125.0,True,Roseburia hominis
+3133167,GCF_040096185.1,SOURCE_DATABASE_REFSEQ,False,Contig,Faecousia intestinalis,CLA-AA-H192,2980004.0,True,Faecousia intestinalis
+35833,GCF_050780155.1,SOURCE_DATABASE_REFSEQ,False,Complete Genome,Bilophila wadsworthia,QI0013,4461530.0,True,Bilophila wadsworthia

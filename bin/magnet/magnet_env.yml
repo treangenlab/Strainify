@@ -1,0 +1,21 @@
+name: magnet
+channels:
+    - conda-forge
+    - bioconda
+dependencies:
+    - python
+    - ncbi-datasets-cli 
+    - minimap2
+    - samtools
+    - biopython
+    - pandas
+    - ete3
+    - bwa
+    - scikit-learn
+    - numpy
+    - fastani
+    - pip
+    - pip:
+      - legacy-cgi
+      - -e .
+

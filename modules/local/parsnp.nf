@@ -9,12 +9,15 @@ process RUN_PARSNP {
     output:
     path "parsnp.maf", emit: maf
     path "*.ref",      emit: ref_file
+    path "parsnp.log", emit: log
+    path "parsnp_out", emit: parsnp_dir
 
     script:
     def flags = params.parsnp_flags ?: '-c'
     """
-    parsnp -r ! -o parsnp_out ${flags} -p ${task.cpus} --fo -d ./*.fna
-    mv parsnp_out/parsnp.maf ./parsnp.maf
+    set -o pipefail
+    parsnp -r ! -o parsnp_out ${flags} -p ${task.cpus} --fo -d ./*.fna 2>&1 | tee parsnp.log
+    cp parsnp_out/parsnp.maf ./parsnp.maf
     find parsnp_out -name '*.ref' -exec cp {} . ';'
     """
 }

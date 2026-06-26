@@ -25,7 +25,10 @@ workflow STRAINIFY {
         def renamed_ch = RENAME_FASTA(genomes_ch)
 
         // --- Step 2: parsnp whole-genome alignment ---
-        def parsnp_out = RUN_PARSNP(renamed_ch.collect())
+        // Sort the collected genomes by file name (not by Path, whose string
+        // includes the random work-dir hash) so parsnp receives a deterministic,
+        // reproducible input set/order across runs.
+        def parsnp_out = RUN_PARSNP(renamed_ch.toSortedList { a, b -> a.name <=> b.name })
 
         // --- Step 3: MAF → VCF ---
         def maf2vcf_out = MAF2VCF(parsnp_out.maf)
@@ -44,9 +47,13 @@ workflow STRAINIFY {
             error "--precomputed_dir must be set when --use_precomputed_variants is true"
         }
         def pdir = params.precomputed_dir
-        variant_matrix_ch = channel.fromPath("${pdir}/filtered_variant_matrix.csv", checkIfExists: true)
-        sites_ch          = channel.fromPath("${pdir}/sites.txt",                   checkIfExists: true)
-        ref_ch            = channel.fromPath("${pdir}/reference.fna",               checkIfExists: true)
+        // Wrap as VALUE channels (channel.value), not channel.fromPath (which is a
+        // single-item QUEUE that gets consumed after one sample). Value channels
+        // are reused for every sample, matching the non-precomputed branch -- so
+        // mapping/counting fan out across all samples instead of just the first.
+        variant_matrix_ch = channel.value(file("${pdir}/filtered_variant_matrix.csv", checkIfExists: true))
+        sites_ch          = channel.value(file("${pdir}/sites.txt",                   checkIfExists: true))
+        ref_ch            = channel.value(file("${pdir}/reference.fna",               checkIfExists: true))
     }
 
     // --- Step 6: index the reference ---
