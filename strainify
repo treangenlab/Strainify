@@ -63,7 +63,9 @@ Common params:
   --fastq_folder    DIR   FASTQ files
   --outdir          DIR   Output directory (default: results)
   --read_type       STR   paired (default) or single
-  -profile          STR   standard (default), test, conda
+  -profile          STR   standard (default), test
+                          (build/activate the env from environment.yml first;
+                           tools run from your active environment)
 
 filter-run params (MAGNET):
   --magnet_ref_dir  DIR   Persistent shared reference panel + build-once bwa index,
@@ -77,7 +79,7 @@ filter-run params (MAGNET):
 
 Examples:
   # Strainify only (paired-end)
-  strainify --genome_folder genomes/ --fastq_folder fastqs/ -profile conda
+  strainify --genome_folder genomes/ --fastq_folder fastqs/
 
   # Strainify only, with precomputed variants
   strainify run --genome_folder genomes/ --fastq_folder fastqs/ \\
@@ -86,7 +88,7 @@ Examples:
   # Prefilter + strainify over a WHOLE FOLDER of fastq sets:
   strainify filter-run --genome_folder genomes/ --fastq_folder fastqs/ \\
             --magnet_ref_dir shared_panel/ --outdir results/ [--read_type single] \\
-            [-- -profile conda]      # args after -- go to each 'nextflow run'
+            [-- -ansi-log false]     # args after -- go to each 'nextflow run'
 
   # Prefilter + strainify for a SINGLE set (via --fastq1):
   strainify filter-run --genome_folder genomes/ --magnet_ref_dir shared_panel/ \\
@@ -110,7 +112,7 @@ _filter_batch() {
     #
     # Consume the folder-level params; everything else -- and anything after a
     # literal '--' -- is forwarded verbatim to each per-set 'nextflow run'
-    # (e.g. -profile conda, -ansi-log false, --magnet_min_covscore 0.5).
+    # (e.g. -ansi-log false, --magnet_min_covscore 0.5).
     local GENOME_FOLDER="" FASTQ_FOLDER="" MAGNET_REF_DIR=""
     local OUTDIR="results" READ_TYPE="paired"
     local EXTRA=()
