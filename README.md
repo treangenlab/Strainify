@@ -84,6 +84,25 @@ genomes it kept under `results/<sample>/magnet/<sample>/`. (`--magnet_ref_dir` i
 defaults to a path under the launch directory — but setting it is recommended so every set
 reuses the same build-once index.)
 
+#### About the bundled MAGNET
+ 
+Strainify bundles a **modified version of [MAGNET](https://github.com/treangenlab/magnet)** (the
+Treangen Lab's whole-genome read-mapping presence/absence caller), adapted for strain-level
+filtering. Beyond a "bring-your-own-genomes" input mode and a build-once shared reference reused
+across samples, it adds two presence-call refinements that are **enabled by default** in
+`filter-run`:
+ 
+- an **absolute evidence gate** that removes false positives a genome can otherwise earn from a
+  saturated breadth ÷ expected-breadth ratio off only a handful of mapped reads (it downgrades
+  *present → absent* unless there is enough absolute primary evidence), and
+- a **primary-evidence rescue** that recovers genuinely-present **low-abundance** strains the
+  coverage-score threshold would otherwise drop, using uniquely-mapped (primary) read support
+  plus consensus ANI (it upgrades *absent → present*).
+See [`bin/magnet/README.md`](bin/magnet/README.md) for the full description, attribution, and the
+`--magnet_*` parameters that tune presence sensitivity (and their defaults). If too few genomes
+pass (Strainify needs at least 2 references), loosen those thresholds — e.g. lower
+`--magnet_min_covscore` or `--magnet_rescue_min_reads`.
+
 ### Use precomputed variants (re-run with new samples)
 
 If you already have `filtered_variant_matrix.csv`, `reference.fna`, and `sites.txt` from a

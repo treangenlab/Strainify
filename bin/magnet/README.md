@@ -17,9 +17,9 @@ Original tool by the Treangen Lab. Please cite:
 > Sapoval, Nicolae, et al. "Lightweight taxonomic profiling of long-read metagenomic datasets with Lemur and Magnet." bioRxiv (2024).
 
 ## Main modifications
-
-This copy differs from the original MAGNET in the following ways:
-
+ 
+This copy differs from upstream MAGNET in the following ways:
+ 
 - **"Bring your own genomes" input mode** (`utils/genome_list_input.py`): accepts
   an explicit list of local strain genome FASTAs instead of going through
   taxids → NCBI Datasets download, producing the same internal metadata schema
@@ -67,3 +67,26 @@ This copy differs from the original MAGNET in the following ways:
   is active by default.) Tunable from the pipeline via `--magnet_rescue_min_reads`,
   `--magnet_rescue_min_ani`, and `--magnet_rescue_min_breadth`; the underlying
   present/absent call is set by `--magnet_min_covscore` (default 0.5).
+- _(Add any other notable changes you made here.)_
+## Strainify parameters
+ 
+These pipeline parameters (set on `strainify filter-run`) drive MAGNET; each maps to the
+underlying MAGNET CLI flag shown. Defaults are the values Strainify's prefilter applies.
+ 
+| Parameter | Default | MAGNET flag | Effect |
+|---|---|---|---|
+| `--magnet_min_covscore` | `0.5` | `--min-covscore` | Coverage-score threshold for the base present/absent call |
+| `--magnet_min_breadth` | `0.005` | `--min-breadth` | Gate: min primary breadth for a present call to stand |
+| `--magnet_min_reads` | `0` | `--min-reads` | Gate: min primary reads for a present call to stand |
+| `--magnet_rescue_min_reads` | `100` | `--rescue-min-reads` | Rescue: primary reads needed to recover an absent call |
+| `--magnet_rescue_min_ani` | `0.97` | `--rescue-min-ani` | Rescue: minimum consensus ANI required to rescue |
+| `--magnet_rescue_min_breadth` | _off_ | `--rescue-min-breadth` | Rescue: alternative primary-breadth trigger (unset by default) |
+| `--magnet_min_mapq` | _off_ | `--min-mapq` | Minimum MAPQ for primary alignments (unset by default) |
+| `--magnet_mode` | `illumina` | `-m` | Sequencing mode (`illumina` or `ont`) |
+| `--magnet_threads` | `task.cpus` | `-t` | Threads for MAGNET |
+| `--magnet_extra` | _none_ | _(appended verbatim)_ | Any extra MAGNET flags to pass through |
+ 
+The absolute gate is active whenever `--magnet_min_breadth` or `--magnet_min_reads` is > 0; the
+rescue is active whenever `--magnet_rescue_min_reads` or `--magnet_rescue_min_breadth` is > 0.
+If too few genomes pass (Strainify needs at least 2 references), loosen these — e.g. lower
+`--magnet_min_covscore` or `--magnet_rescue_min_reads`, or relax `--magnet_rescue_min_ani`.
