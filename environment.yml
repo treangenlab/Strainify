@@ -61,4 +61,3 @@ dependencies:
   # --- pip: only non-conda / local installs (keep this minimal for packaging) ---
   - pip:
       - legacy-cgi
-      - -e ./bin/magnet
