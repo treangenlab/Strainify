@@ -76,13 +76,14 @@ build-once index) or give a single set with `--fastq1`/`--fastq2`:
   --genome_folder  path/to/genomes \
   --fastq_folder   path/to/fastqs \
   --magnet_ref_dir shared_panel \
+  --jobs           1 \
   --outdir         results
 ```
 
 Each sample's results go under `results/<sample>/`, with MAGNET's present/absent calls and the
-genomes it kept under `results/<sample>/magnet/<sample>/`. (`--magnet_ref_dir` is optional — it
+genomes it kept under `results/<sample>/magnet/<sample>/`. Note: `--magnet_ref_dir` is optional — it
 defaults to a path under the launch directory — but setting it is recommended so every set
-reuses the same build-once index.)
+reuses the same build-once index. `--jobs` is also optional and sets the number of samples to process concurrently (defaults to 1 if not set, i.e. samples are run serially). Each sample's heavy steps cap at ~min(12,max_cpus) cores, so set N near (cores / 12) to fill a big node without oversubscribing.
 
 #### About the bundled MAGNET
  

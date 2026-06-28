@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 # strainify – Nextflow launcher for Strainify
-# Works when called from:
-#   1. A conda-installed prefix  ($PREFIX/bin/strainify -> $PREFIX/share/strainify/main.nf)
-#   2. A git checkout            (./strainify -> ./main.nf next to this script)
-#   3. Any custom location       (set STRAINIFY_PIPELINE_DIR to override)
+
 set -euo pipefail
 
 # Resolve the directory that contains THIS script, following symlinks.
@@ -72,6 +69,10 @@ filter-run params (MAGNET):
                           reused across all sets. Optional: defaults to
                           <launch_dir>/magnet_shared_reference. Set it to choose the
                           location (recommended for distributed/cluster filesystems).
+  --jobs            N     Folder mode: number of sets to process concurrently
+                          (default 1 = serial). Each set's heavy steps cap at
+                          ~min(12,max_cpus) cores, so set N near (cores / 12) to
+                          fill a big node without oversubscribing.
   Single set only:
   --fastq1          FILE  R1 (or the single-end fastq)
   --fastq2          FILE  R2 (omit for single-end)
@@ -85,10 +86,10 @@ Examples:
   strainify run --genome_folder genomes/ --fastq_folder fastqs/ \\
             --use_precomputed_variants --precomputed_dir prev_results/
 
-  # Prefilter + strainify over a WHOLE FOLDER of fastq sets:
+  # Prefilter + strainify over a WHOLE FOLDER of fastq sets (4 in parallel):
   strainify filter-run --genome_folder genomes/ --fastq_folder fastqs/ \\
-            --magnet_ref_dir shared_panel/ --outdir results/ [--read_type single] \\
-            [-- -ansi-log false]     # args after -- go to each 'nextflow run'
+            --magnet_ref_dir shared_panel/ --outdir results/ --jobs 4 \\
+            [--read_type single]
 
   # Prefilter + strainify for a SINGLE set (via --fastq1):
   strainify filter-run --genome_folder genomes/ --magnet_ref_dir shared_panel/ \\
@@ -105,16 +106,22 @@ _filter_single() {
 }
 
 _filter_batch() {
-    # A FOLDER of sets: loop 'nextflow run main.nf --prefilter' once per set, all
-    # sharing the SAME build-once --magnet_ref_dir index (built on the first run,
-    # reused unchanged by the rest). This is the old bin/run_filter_batch.sh loop,
-    # folded in so there's no separate driver file to deploy.
+    # A FOLDER of sets: run 'nextflow run main.nf --prefilter' once per set, all
+    # sharing the SAME build-once --magnet_ref_dir index. The index is built by
+    # whichever set reaches it first and reused unchanged by the rest; the build
+    # is marker+lock guarded inside MAGNET, so concurrent sets are safe.
+    #
+    # --jobs N controls how many sets run at once (default 1 = serial, streamed
+    # to the terminal -- unchanged behavior). With N>1, sets run in the
+    # background, each with its own work dir and Nextflow log, and each set's
+    # console output is captured to <outdir>/<sample>/filter-run.log. Each set's
+    # heavy steps cap at ~min(12,max_cpus) cores, so set N near (cores / 12) to
+    # fill a big node without oversubscribing.
     #
     # Consume the folder-level params; everything else -- and anything after a
-    # literal '--' -- is forwarded verbatim to each per-set 'nextflow run'
-    # (e.g. -ansi-log false, --magnet_min_covscore 0.5).
+    # literal '--' -- is forwarded verbatim to each per-set 'nextflow run'.
     local GENOME_FOLDER="" FASTQ_FOLDER="" MAGNET_REF_DIR=""
-    local OUTDIR="results" READ_TYPE="paired"
+    local OUTDIR="results" READ_TYPE="paired" JOBS=1
     local EXTRA=()
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -123,6 +130,7 @@ _filter_batch() {
             --magnet_ref_dir) MAGNET_REF_DIR="$2"; shift 2;;
             --outdir)         OUTDIR="$2";         shift 2;;
             --read_type)      READ_TYPE="$2";      shift 2;;
+            --jobs)           JOBS="$2";           shift 2;;
             --)               shift; EXTRA+=("$@"); break;;
             *)                EXTRA+=("$1"); shift;;
         esac
@@ -130,16 +138,21 @@ _filter_batch() {
 
     [[ -n "$GENOME_FOLDER" ]] || { echo "ERROR: filter-run (folder mode) needs --genome_folder <dir>" >&2; exit 2; }
     [[ -n "$FASTQ_FOLDER"  ]] || { echo "ERROR: filter-run (folder mode) needs --fastq_folder <dir>"  >&2; exit 2; }
+    case "$JOBS" in ''|*[!0-9]*) echo "ERROR: --jobs must be a positive integer (got '$JOBS')" >&2; exit 2;; esac
+    [[ "$JOBS" -ge 1 ]] || JOBS=1
 
     mkdir -p "$OUTDIR"
     [[ -n "$MAGNET_REF_DIR" ]] && mkdir -p "$MAGNET_REF_DIR"
 
-    # One set -> one 'nextflow run main.nf --prefilter'. Sees this function's
-    # locals (GENOME_FOLDER, MAGNET_REF_DIR, OUTDIR, EXTRA) via bash dynamic scope.
+    # One set -> one 'nextflow run main.nf --prefilter'. Isolated work dir + log
+    # per set so concurrent runs never collide. Sees this function's locals
+    # (GENOME_FOLDER, MAGNET_REF_DIR, OUTDIR, EXTRA) via bash dynamic scope.
     _batch_run_one() {
         local sample="$1" r1="$2" r2="${3:-}"
-        echo ">>> [$sample] MAGNET filter + strainify (shared index: ${MAGNET_REF_DIR:-<pipeline default under launch dir>})"
-        local args=(run "$PIPELINE_DIR/main.nf"
+        mkdir -p "$OUTDIR/$sample"
+        local args=(-log "$OUTDIR/$sample/.nextflow.log"
+            run "$PIPELINE_DIR/main.nf"
+            -work-dir "work/$sample"
             --prefilter
             --genome_folder "$GENOME_FOLDER"
             --sample_id "$sample"
@@ -148,11 +161,30 @@ _filter_batch() {
         [[ -n "$MAGNET_REF_DIR" ]] && args+=(--magnet_ref_dir "$MAGNET_REF_DIR")
         [[ -n "$r2" ]] && args+=(--fastq2 "$r2")
         [[ ${#EXTRA[@]} -gt 0 ]] && args+=("${EXTRA[@]}")
-        "$NXF" "${args[@]}"
+        # Disable Nextflow's ANSI live display when this run's stdout isn't a
+        # terminal -- parallel mode redirects it to filter-run.log, and the whole
+        # launcher may be redirected too. Otherwise the progress table is redrawn
+        # via cursor-up/erase codes every refresh and the redraws stack up in the
+        # file (the same RUN_PARSNP row printed dozens of times). Use the env var
+        # (-ansi-log is a `run` option whose position is easy to get wrong); a
+        # user-supplied -ansi-log flag still overrides it, so skip when they set one.
+        local _set_ansi=0 _e
+        if ! [ -t 1 ]; then
+            _set_ansi=1
+            for _e in ${EXTRA[@]+"${EXTRA[@]}"}; do
+                [[ "$_e" == "-ansi-log" ]] && _set_ansi=0
+            done
+        fi
+        if [[ "$_set_ansi" -eq 1 ]]; then
+            NXF_ANSI_LOG=false "$NXF" "${args[@]}"
+        else
+            "$NXF" "${args[@]}"
+        fi
     }
 
-    local found=0 ok=0 r1 r2 sample
-    local failed=()
+    # ---- collect the sets (same globbing/validation as before) ----
+    local found=0 r1 r2 sample
+    local S_NAME=() S_R1=() S_R2=()
     shopt -s nullglob
     if [[ "$READ_TYPE" == "paired" ]]; then
         # Match *_R1/_R2 and *_r1/_r2, .fq / .fastq, optionally .gz.
@@ -164,13 +196,7 @@ _filter_batch() {
                 continue
             fi
             sample="$(basename "$r1")"; sample="${sample%%_[rR]1.*}"
-            found=$((found+1))
-            if _batch_run_one "$sample" "$r1" "$r2"; then
-                ok=$((ok+1))
-            else
-                echo "ERROR: [$sample] failed (exit $?); continuing with remaining sets" >&2
-                failed+=("$sample")
-            fi
+            S_NAME+=("$sample"); S_R1+=("$r1"); S_R2+=("$r2"); found=$((found+1))
         done
         [[ "$found" -gt 0 ]] || { echo "No paired fastq sets found in $FASTQ_FOLDER" >&2; exit 1; }
     else
@@ -179,15 +205,75 @@ _filter_batch() {
             # Skip paired-looking files in single mode.
             case "$(basename "$r1")" in *_[rR][12].*) continue;; esac
             sample="$(basename "$r1")"; sample="${sample%.f*q}"; sample="${sample%.f*q.gz}"
-            found=$((found+1))
-            if _batch_run_one "$sample" "$r1"; then
+            S_NAME+=("$sample"); S_R1+=("$r1"); S_R2+=(""); found=$((found+1))
+        done
+        [[ "$found" -gt 0 ]] || { echo "No single-end fastq files found in $FASTQ_FOLDER" >&2; exit 1; }
+    fi
+
+    # ---- dispatch: serial+streamed if JOBS=1, else concurrent in batches ----
+    local ok=0 i j bcount=0
+    local failed=()
+    local B_PID=() B_NAME=()
+
+    if [[ "$JOBS" -le 1 ]]; then
+        echo ">>> Processing $found set(s) serially (use --jobs N to parallelize)."
+    else
+        echo ">>> Processing $found set(s), up to $JOBS at a time. Per-set logs: $OUTDIR/<sample>/filter-run.log"
+    fi
+
+    # Shared MAGNET index notice. The index is built ONCE (lock-serialized) by the
+    # first set to reach it; the rest wait, then reuse it. Surface that so a cold
+    # start -- especially with --jobs > 1 -- doesn't look like it stalled.
+    # magnet_ref_dir defaults to <launch_dir>/magnet_shared_reference when unset;
+    # build_shared_reference writes .shared_reference_complete last, so its presence
+    # means the merged reference and (for illumina) its bwa index are ready.
+    local EFF_REF="${MAGNET_REF_DIR:-magnet_shared_reference}"
+    if [[ -f "$EFF_REF/.shared_reference_complete" ]]; then
+        echo ">>> Reusing existing shared MAGNET index in '$EFF_REF'."
+    else
+        echo ">>> Building shared MAGNET index in '$EFF_REF' (first set builds it once;"
+        echo "    other sets wait on the lock, then reuse it)."
+    fi
+
+    for ((i=0; i<found; i++)); do
+        sample="${S_NAME[$i]}"; r1="${S_R1[$i]}"; r2="${S_R2[$i]}"
+        if [[ "$JOBS" -le 1 ]]; then
+            echo ">>> [$sample] MAGNET filter + strainify (shared index: ${MAGNET_REF_DIR:-<pipeline default under launch dir>})"
+            if _batch_run_one "$sample" "$r1" "$r2"; then
                 ok=$((ok+1))
             else
                 echo "ERROR: [$sample] failed (exit $?); continuing with remaining sets" >&2
                 failed+=("$sample")
             fi
+        else
+            mkdir -p "$OUTDIR/$sample"   # must exist before the log redirect opens it
+            echo ">>> [$sample] launched (parallel)"
+            _batch_run_one "$sample" "$r1" "$r2" > "$OUTDIR/$sample/filter-run.log" 2>&1 &
+            B_PID[$bcount]="$!"; B_NAME[$bcount]="$sample"; bcount=$((bcount+1))
+            if [[ "$bcount" -ge "$JOBS" ]]; then
+                for ((j=0; j<bcount; j++)); do
+                    if wait "${B_PID[$j]}"; then
+                        ok=$((ok+1)); echo ">>> [${B_NAME[$j]}] done"
+                    else
+                        echo "ERROR: [${B_NAME[$j]}] failed (see $OUTDIR/${B_NAME[$j]}/filter-run.log); continuing" >&2
+                        failed+=("${B_NAME[$j]}")
+                    fi
+                done
+                B_PID=(); B_NAME=(); bcount=0
+            fi
+        fi
+    done
+
+    # drain any remaining background sets (final partial batch)
+    if [[ "$bcount" -gt 0 ]]; then
+        for ((j=0; j<bcount; j++)); do
+            if wait "${B_PID[$j]}"; then
+                ok=$((ok+1)); echo ">>> [${B_NAME[$j]}] done"
+            else
+                echo "ERROR: [${B_NAME[$j]}] failed (see $OUTDIR/${B_NAME[$j]}/filter-run.log); continuing" >&2
+                failed+=("${B_NAME[$j]}")
+            fi
         done
-        [[ "$found" -gt 0 ]] || { echo "No single-end fastq files found in $FASTQ_FOLDER" >&2; exit 1; }
     fi
 
     if [[ ${#failed[@]} -gt 0 ]]; then
