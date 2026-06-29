@@ -11,6 +11,18 @@ Strainify is an accurate strain-level abundance analysis tool for short-read met
 </p>
 
 ## Installation
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](https://bioconda.github.io/recipes/strainify/README.html)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/strainify/badges/version.svg)](https://anaconda.org/bioconda/strainify)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/strainify/badges/downloads.svg)](https://anaconda.org/bioconda/strainify)
+
+### Installing via conda
+```bash
+conda install -c conda-forge -c bioconda strainify
+conda activate strainify
+strainify --help
+```
+
+### Installing via git
 
 ```bash
 git clone https://github.com/treangenlab/Strainify.git
@@ -42,8 +54,7 @@ conda activate strainify
 
 ## Usage
 
-All parameters are passed as Nextflow `--param` flags. No YAML config file is required, though
-you can use Nextflow's built-in `-params-file params.yml` for reproducibility.
+Note: if installed via conda, replace `./strainify` with `strainify` in the following commands.
 
 ### Basic run (paired-end reads)
 
