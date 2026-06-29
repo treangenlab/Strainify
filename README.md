@@ -179,7 +179,7 @@ For step-by-step instructions using the example data, see:
 Run the test profile to verify your installation (from your activated environment):
 
 ```bash
-./strainify -profile test
+NXF_ANSI_LOG=false ./strainify -profile test
 ```
 
 ---
