@@ -100,8 +100,214 @@ EOF
 
 # --- filter-run handlers (single set vs folder of sets, auto-selected) ---
 
+_check_dir() {
+    # $1 = flag name (for the message), $2 = path
+    local flag="$1" dir="$2"
+    [[ -e "$dir" ]] || { echo "ERROR: $flag: no such directory: '$dir'" >&2; exit 2; }
+    [[ -d "$dir" ]] || { echo "ERROR: $flag: not a directory: '$dir'" >&2; exit 2; }
+    [[ -r "$dir" ]] || { echo "ERROR: $flag: directory is not readable: '$dir'" >&2; exit 2; }
+}
+
+_fastq_format_ok() {
+    # Peek at the first record to confirm the file really is FASTQ, and that a
+    # .gz actually decompresses (catches truncated/corrupt transfers). Reads only
+    # the first 4 lines, so this is cheap even on huge files. Prints a reason and
+    # returns 1 on failure; callers decide whether to skip or abort.
+    local f="$1" first="" third="" safe
+    local data
+    # BSD head (macOS) does not accept '--' as an end-of-options marker, so use a
+    # path that can never look like a flag instead: prefix a relative path with
+    # './'. Works identically under GNU and BSD userland.
+    case "$f" in
+        /*) safe="$f" ;;
+        *)  safe="./$f" ;;
+    esac
+    case "$f" in
+        *.gz)
+            data="$(gzip -dc "$safe" 2>/dev/null | head -n 4)" || true
+            if [[ -z "$data" ]]; then
+                echo "not readable as gzip (truncated or corrupt .gz?)"
+                return 1
+            fi
+            ;;
+        *)
+            data="$(head -n 4 "$safe" 2>/dev/null)" || true
+            if [[ -z "$data" ]]; then
+                echo "no readable data"
+                return 1
+            fi
+            ;;
+    esac
+
+    first="$(printf '%s\n' "$data" | sed -n '1p')"
+    third="$(printf '%s\n' "$data" | sed -n '3p')"
+
+    case "$first" in
+        @*) ;;
+        '>'*)
+            echo "looks like FASTA (first line starts with '>'), not FASTQ"
+            return 1
+            ;;
+        *)
+            echo "not FASTQ (first line does not start with '@')"
+            return 1
+            ;;
+    esac
+
+    # Line 3 of a FASTQ record is the '+' separator. A miss here means the file
+    # starts like FASTQ but isn't well-formed (truncated record, wrapped lines).
+    case "$third" in
+        +*) ;;
+        *)
+            echo "malformed FASTQ (line 3 does not start with '+')"
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+_check_fastq_file() {
+    # $1 = flag name, $2 = path. Existence + non-empty + real FASTQ content.
+    # Single-set mode: a bad file means there is nothing to run, so abort.
+    local flag="$1" f="$2" why
+    [[ -e "$f" ]] || { echo "ERROR: $flag: no such file: '$f'" >&2; exit 2; }
+    [[ -f "$f" ]] || { echo "ERROR: $flag: not a regular file: '$f'" >&2; exit 2; }
+    [[ -r "$f" ]] || { echo "ERROR: $flag: file is not readable: '$f'" >&2; exit 2; }
+    [[ -s "$f" ]] || { echo "ERROR: $flag: file is empty: '$f'" >&2; exit 2; }
+    case "$f" in
+        *.fq|*.fastq|*.fq.gz|*.fastq.gz) ;;
+        *) echo "WARN: $flag: '$f' does not have a FASTQ extension (.fq/.fastq, optionally .gz)" >&2;;
+    esac
+    if ! why="$(_fastq_format_ok "$f")"; then
+        echo "ERROR: $flag: '$f': $why" >&2
+        exit 1
+    fi
+}
+
+_fasta_format_ok() {
+    # Peek at the first non-blank line to confirm the file really is FASTA, and
+    # that a .gz actually decompresses. Prints a reason and returns 1 on failure.
+    # Reads only the head of the file, so it is cheap even on large genomes.
+    local f="$1" safe first=""
+    # BSD head/gzip (macOS) do not accept '--', so make the path un-flag-like.
+    case "$f" in
+        /*) safe="$f" ;;
+        *)  safe="./$f" ;;
+    esac
+
+    if [[ ! -s "$f" ]]; then
+        echo "file is empty"
+        return 1
+    fi
+
+    case "$f" in
+        *.gz)
+            first="$(gzip -dc "$safe" 2>/dev/null | sed -n '/[^[:space:]]/{p;q;}')" || true
+            if [[ -z "$first" ]]; then
+                echo "not readable as gzip (truncated or corrupt .gz?)"
+                return 1
+            fi
+            ;;
+        *)
+            first="$(sed -n '/[^[:space:]]/{p;q;}' "$safe" 2>/dev/null)" || true
+            if [[ -z "$first" ]]; then
+                echo "no readable data"
+                return 1
+            fi
+            ;;
+    esac
+
+    case "$first" in
+        '>'*) return 0 ;;
+        @*)
+            echo "looks like FASTQ (first line starts with '@'), not FASTA"
+            return 1
+            ;;
+        *)
+            echo "not FASTA (first line does not start with '>')"
+            return 1
+            ;;
+    esac
+}
+
+_check_genomes_present() {
+    # --genome_folder must hold at least 2 FASTA genomes: parsnp builds a multiple
+    # alignment (reference + >=1 query), so a single genome yields no variant sites.
+    # Checked up front because otherwise a 1-genome folder fails only after the run
+    # is underway -- in filter-run, after the whole MAGNET index build + filtering,
+    # which can only reduce the count further (MAGNET_SELECT enforces >=2 Present).
+    #
+    # Every FASTA-named file is also content-checked. A bad genome is a HARD error
+    # (unlike a bad fastq, which is skipped): the genome panel defines the reference
+    # and the variant sites, so silently dropping one would change the result rather
+    # than just lose a sample. All offenders are listed, not just the first.
+    local dir="$1" n=0 g why=""
+    local BAD=() BADWHY=() nbad=0
+
+    shopt -s nullglob
+    for g in "$dir"/*.fna "$dir"/*.fa "$dir"/*.fasta "$dir"/*.fna.gz "$dir"/*.fa.gz "$dir"/*.fasta.gz; do
+        [[ -e "$g" ]] || continue
+        n=$((n+1))
+        if ! why="$(_fasta_format_ok "$g")"; then
+            BAD[$nbad]="$g"; BADWHY[$nbad]="$why"; nbad=$((nbad+1))
+        fi
+    done
+    shopt -u nullglob
+
+    if [[ "$n" -eq 0 ]]; then
+        echo "ERROR: --genome_folder: no genomes found in '$dir'" >&2
+        echo "       Expected FASTA files: *.fna, *.fa, *.fasta (optionally .gz)" >&2
+        exit 1
+    fi
+
+    if [[ "$nbad" -gt 0 ]]; then
+        echo "ERROR: --genome_folder: $nbad of $n file(s) in '$dir' are not valid FASTA:" >&2
+        local k=0
+        while [[ $k -lt $nbad ]]; do
+            echo "         $(basename "${BAD[$k]}")  --  ${BADWHY[$k]}" >&2
+            k=$((k+1))
+        done
+        echo "       Genomes define the reference and the variant sites, so strainify will not" >&2
+        echo "       silently drop them. Remove or fix these files, then re-run." >&2
+        exit 1
+    fi
+
+    if [[ "$n" -lt 2 ]]; then
+        echo "ERROR: --genome_folder: found only $n genome in '$dir'; strainify needs at least 2." >&2
+        echo "       parsnp aligns a reference against one or more query genomes, so a single" >&2
+        echo "       genome produces no variant sites to distinguish strains." >&2
+        exit 1
+    fi
+}
+
 _filter_single() {
-    # ONE fastq set: thin passthrough to 'nextflow run main.nf --prefilter'.
+    # ONE fastq set: validate the inputs here (so the launcher can give a clear
+    # message instead of a deep Nextflow error), then pass the ORIGINAL argument
+    # list through to 'nextflow run main.nf --prefilter'. Scan a copy of "$@" --
+    # do not consume it, since every argument must still be forwarded verbatim.
+    local gf="" f1="" f2="" i=1 a next
+    while [[ $i -le $# ]]; do
+        a="${!i}"
+        next=$((i+1))
+        case "$a" in
+            --genome_folder) [[ $next -le $# ]] && gf="${!next}";;
+            --fastq1)        [[ $next -le $# ]] && f1="${!next}";;
+            --fastq2)        [[ $next -le $# ]] && f2="${!next}";;
+        esac
+        i=$next
+    done
+
+    [[ -n "$gf" ]] || { echo "ERROR: filter-run (single set) needs --genome_folder <dir>" >&2; exit 2; }
+    _check_dir "--genome_folder" "$gf"
+    _check_genomes_present "$gf"
+
+    [[ -n "$f1" ]] || { echo "ERROR: filter-run (single set) needs --fastq1 <file>" >&2; exit 2; }
+    _check_fastq_file "--fastq1" "$f1"
+    if [[ -n "$f2" ]]; then
+        _check_fastq_file "--fastq2" "$f2"
+        [[ "$f1" != "$f2" ]] || { echo "ERROR: --fastq1 and --fastq2 are the same file: '$f1'" >&2; exit 2; }
+    fi
+
     exec "$NXF" run "$PIPELINE_DIR/main.nf" --prefilter "$@"
 }
 
@@ -139,6 +345,15 @@ _filter_batch() {
     [[ -n "$GENOME_FOLDER" ]] || { echo "ERROR: filter-run (folder mode) needs --genome_folder <dir>" >&2; exit 2; }
     [[ -n "$FASTQ_FOLDER"  ]] || { echo "ERROR: filter-run (folder mode) needs --fastq_folder <dir>"  >&2; exit 2; }
     case "$JOBS" in ''|*[!0-9]*) echo "ERROR: --jobs must be a positive integer (got '$JOBS')" >&2; exit 2;; esac
+    case "$READ_TYPE" in
+        paired|single) ;;
+        *) echo "ERROR: --read_type must be 'paired' or 'single' (got '$READ_TYPE')" >&2; exit 2;;
+    esac
+    # Fail fast on bad paths: without these, a typo'd directory just globs nothing
+    # and surfaces as a confusing "no fastq sets found" (or fails deep in Nextflow).
+    _check_dir "--genome_folder" "$GENOME_FOLDER"
+    _check_dir "--fastq_folder"  "$FASTQ_FOLDER"
+    _check_genomes_present "$GENOME_FOLDER"
     [[ "$JOBS" -ge 1 ]] || JOBS=1
 
     mkdir -p "$OUTDIR"
@@ -161,31 +376,22 @@ _filter_batch() {
         [[ -n "$MAGNET_REF_DIR" ]] && args+=(--magnet_ref_dir "$MAGNET_REF_DIR")
         [[ -n "$r2" ]] && args+=(--fastq2 "$r2")
         [[ ${#EXTRA[@]} -gt 0 ]] && args+=("${EXTRA[@]}")
-        # Disable Nextflow's ANSI live display when this run's stdout isn't a
-        # terminal -- parallel mode redirects it to filter-run.log, and the whole
-        # launcher may be redirected too. Otherwise the progress table is redrawn
-        # via cursor-up/erase codes every refresh and the redraws stack up in the
-        # file (the same RUN_PARSNP row printed dozens of times). Use the env var
-        # (-ansi-log is a `run` option whose position is easy to get wrong); a
-        # user-supplied -ansi-log flag still overrides it, so skip when they set one.
-        local _set_ansi=0 _e
-        if ! [ -t 1 ]; then
-            _set_ansi=1
-            for _e in ${EXTRA[@]+"${EXTRA[@]}"}; do
-                [[ "$_e" == "-ansi-log" ]] && _set_ansi=0
-            done
-        fi
-        if [[ "$_set_ansi" -eq 1 ]]; then
-            NXF_ANSI_LOG=false "$NXF" "${args[@]}"
-        else
-            "$NXF" "${args[@]}"
-        fi
+        # NXF_ANSI_LOG is exported once at the top of this script (default false),
+        # so these backgrounded runs inherit it -- no per-run handling needed.
+        "$NXF" "${args[@]}"
     }
 
-    # ---- collect the sets (same globbing/validation as before) ----
-    local found=0 r1 r2 sample
+    # ---- collect the sets ----
+    local found=0 r1 r2 sample nfastq=0 npairish=0 f why=""
     local S_NAME=() S_R1=() S_R2=()
     shopt -s nullglob
+    # Count what's actually in the folder, so a no-match can explain itself.
+    for f in "$FASTQ_FOLDER"/*.f*q "$FASTQ_FOLDER"/*.f*q.gz; do
+        [[ -e "$f" ]] || continue
+        nfastq=$((nfastq+1))
+        case "$(basename "$f")" in *_[rR][12].*) npairish=$((npairish+1));; esac
+    done
+
     if [[ "$READ_TYPE" == "paired" ]]; then
         # Match *_R1/_R2 and *_r1/_r2, .fq / .fastq, optionally .gz.
         for r1 in "$FASTQ_FOLDER"/*_[rR]1.f*q "$FASTQ_FOLDER"/*_[rR]1.f*q.gz; do
@@ -195,20 +401,58 @@ _filter_batch() {
                 echo "WARN: no mate found for $r1 (expected $r2); skipping" >&2
                 continue
             fi
+            if [[ ! -s "$r1" || ! -s "$r2" ]]; then
+                echo "WARN: empty fastq in set $(basename "${r1%%_[rR]1.*}"); skipping" >&2
+                continue
+            fi
+            if ! why="$(_fastq_format_ok "$r1")"; then
+                echo "WARN: $r1: $why; skipping set" >&2
+                continue
+            fi
+            if ! why="$(_fastq_format_ok "$r2")"; then
+                echo "WARN: $r2: $why; skipping set" >&2
+                continue
+            fi
             sample="$(basename "$r1")"; sample="${sample%%_[rR]1.*}"
             S_NAME+=("$sample"); S_R1+=("$r1"); S_R2+=("$r2"); found=$((found+1))
         done
-        [[ "$found" -gt 0 ]] || { echo "No paired fastq sets found in $FASTQ_FOLDER" >&2; exit 1; }
+        if [[ "$found" -eq 0 ]]; then
+            echo "ERROR: no paired fastq sets found in '$FASTQ_FOLDER'" >&2
+            echo "       Expected pairs named:  <sample>_R1.fastq[.gz] + <sample>_R2.fastq[.gz]" >&2
+            echo "       (also accepted: _r1/_r2, and .fq in place of .fastq)" >&2
+            if [[ "$nfastq" -gt 0 && "$npairish" -eq 0 ]]; then
+                echo "       Found $nfastq fastq file(s), none with an _R1/_R2 suffix." >&2
+                echo "       If these are single-end reads, re-run with:  --read_type single" >&2
+            fi
+            exit 1
+        fi
     else
         for r1 in "$FASTQ_FOLDER"/*.f*q "$FASTQ_FOLDER"/*.f*q.gz; do
             [[ -e "$r1" ]] || continue
             # Skip paired-looking files in single mode.
             case "$(basename "$r1")" in *_[rR][12].*) continue;; esac
+            if [[ ! -s "$r1" ]]; then
+                echo "WARN: empty fastq: $r1; skipping" >&2
+                continue
+            fi
+            if ! why="$(_fastq_format_ok "$r1")"; then
+                echo "WARN: $r1: $why; skipping" >&2
+                continue
+            fi
             sample="$(basename "$r1")"; sample="${sample%.f*q}"; sample="${sample%.f*q.gz}"
             S_NAME+=("$sample"); S_R1+=("$r1"); S_R2+=(""); found=$((found+1))
         done
-        [[ "$found" -gt 0 ]] || { echo "No single-end fastq files found in $FASTQ_FOLDER" >&2; exit 1; }
+        if [[ "$found" -eq 0 ]]; then
+            echo "ERROR: no single-end fastq files found in '$FASTQ_FOLDER'" >&2
+            echo "       Expected files named:  <sample>.fastq[.gz]  (or .fq)" >&2
+            if [[ "$npairish" -gt 0 ]]; then
+                echo "       Found $npairish file(s) with _R1/_R2 suffixes, which are skipped in" >&2
+                echo "       single mode. If these are paired-end reads, re-run with:  --read_type paired" >&2
+            fi
+            exit 1
+        fi
     fi
+    shopt -u nullglob
 
     # ---- dispatch: serial+streamed if JOBS=1, else concurrent in batches ----
     local ok=0 i j bcount=0
@@ -308,10 +552,133 @@ _filter_auto() {
 
 NXF="${NEXTFLOW:-nextflow}"
 
+# Nextflow's ANSI live display redraws its progress table in place using cursor
+# codes, which only works on a terminal that honours them -- in a pipe, a log, a
+# batch job, or an editor output pane the redraws stack up instead of
+# overwriting. Default it OFF for every run so the console is plain and
+# append-only everywhere. Set NXF_ANSI_LOG=true to get the live table back.
+: "${NXF_ANSI_LOG:=false}"
+export NXF_ANSI_LOG
+
+_check_fastq_folder() {
+    # Validate the fastqs in a folder for plain `run` (which, unlike filter-run,
+    # never enumerates them itself -- it just hands --fastq_folder to Nextflow).
+    # Same rules as filter-run: malformed/empty/unmated files are reported and
+    # skipped; if nothing usable is left, fail here rather than deep in bwa.
+    # $1 = folder, $2 = read_type (paired|single)
+    local dir="$1" rt="$2"
+    local usable=0 nfastq=0 npairish=0 f r1 r2 why=""
+
+    shopt -s nullglob
+    for f in "$dir"/*.f*q "$dir"/*.f*q.gz; do
+        [[ -e "$f" ]] || continue
+        nfastq=$((nfastq+1))
+        case "$(basename "$f")" in *_[rR][12].*) npairish=$((npairish+1));; esac
+    done
+
+    if [[ "$rt" == "single" ]]; then
+        for r1 in "$dir"/*.f*q "$dir"/*.f*q.gz; do
+            [[ -e "$r1" ]] || continue
+            case "$(basename "$r1")" in *_[rR][12].*) continue;; esac
+            if [[ ! -s "$r1" ]]; then
+                echo "WARN: empty fastq: $r1; skipping" >&2
+                continue
+            fi
+            if ! why="$(_fastq_format_ok "$r1")"; then
+                echo "WARN: $r1: $why; skipping" >&2
+                continue
+            fi
+            usable=$((usable+1))
+        done
+    else
+        for r1 in "$dir"/*_[rR]1.f*q "$dir"/*_[rR]1.f*q.gz; do
+            [[ -e "$r1" ]] || continue
+            r2="${r1/_R1./_R2.}"; r2="${r2/_r1./_r2.}"
+            if [[ ! -e "$r2" ]]; then
+                echo "WARN: no mate found for $r1 (expected $r2); skipping" >&2
+                continue
+            fi
+            if [[ ! -s "$r1" || ! -s "$r2" ]]; then
+                echo "WARN: empty fastq in set $(basename "${r1%%_[rR]1.*}"); skipping" >&2
+                continue
+            fi
+            if ! why="$(_fastq_format_ok "$r1")"; then
+                echo "WARN: $r1: $why; skipping set" >&2
+                continue
+            fi
+            if ! why="$(_fastq_format_ok "$r2")"; then
+                echo "WARN: $r2: $why; skipping set" >&2
+                continue
+            fi
+            usable=$((usable+1))
+        done
+    fi
+    shopt -u nullglob
+
+    if [[ "$usable" -eq 0 ]]; then
+        if [[ "$rt" == "single" ]]; then
+            echo "ERROR: no usable single-end fastq files in '$dir'" >&2
+            echo "       Expected files named:  <sample>.fastq[.gz]  (or .fq)" >&2
+            if [[ "$npairish" -gt 0 ]]; then
+                echo "       Found $npairish file(s) with _R1/_R2 suffixes, which are skipped in" >&2
+                echo "       single mode. If these are paired-end reads, use --read_type paired." >&2
+            fi
+        else
+            echo "ERROR: no usable paired fastq sets in '$dir'" >&2
+            echo "       Expected pairs named:  <sample>_R1.fastq[.gz] + <sample>_R2.fastq[.gz]" >&2
+            echo "       (also accepted: _r1/_r2, and .fq in place of .fastq)" >&2
+            if [[ "$nfastq" -gt 0 && "$npairish" -eq 0 ]]; then
+                echo "       Found $nfastq fastq file(s), none with an _R1/_R2 suffix." >&2
+                echo "       If these are single-end reads, use --read_type single." >&2
+            fi
+        fi
+        exit 1
+    fi
+    return 0
+}
+
+_validate_run_args() {
+    # Plain `run` (strainify only, no prefilter) goes straight to parsnp, which
+    # needs >= 2 genomes, and then to bwa, which needs real FASTQs. Validate here
+    # so failures are immediate and legible rather than surfacing mid-run.
+    # Scans a COPY of "$@" -- nothing is consumed; all args are still forwarded.
+    # Genome check is skipped when --use_precomputed_variants is set (no parsnp).
+    local gf="" ff="" rt="paired" precomp=0 i=1 a next
+    while [[ $i -le $# ]]; do
+        a="${!i}"
+        next=$((i+1))
+        case "$a" in
+            --genome_folder)            [[ $next -le $# ]] && gf="${!next}";;
+            --fastq_folder)             [[ $next -le $# ]] && ff="${!next}";;
+            --read_type)                [[ $next -le $# ]] && rt="${!next}";;
+            --use_precomputed_variants) precomp=1;;
+        esac
+        i=$next
+    done
+
+    case "$rt" in
+        paired|single) ;;
+        *) echo "ERROR: --read_type must be 'paired' or 'single' (got '$rt')" >&2; exit 2;;
+    esac
+
+    [[ -n "$gf" ]] && _check_dir "--genome_folder" "$gf"
+    [[ -n "$ff" ]] && _check_dir "--fastq_folder"  "$ff"
+    # parsnp only runs when variants are being computed from the genomes.
+    if [[ -n "$gf" && "$precomp" -eq 0 ]]; then
+        _check_genomes_present "$gf"
+    fi
+    # Reads are mapped in every mode, so always validate them when a folder is given.
+    if [[ -n "$ff" ]]; then
+        _check_fastq_folder "$ff" "$rt"
+    fi
+    return 0
+}
+
 CMD="${1:-}"
 case "$CMD" in
     run)
         shift
+        _validate_run_args "$@"
         exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
         ;;
     filter-run)
@@ -330,6 +697,7 @@ case "$CMD" in
         ;;
     -*)
         # Bare nextflow flags / params passed directly (most common invocation)
+        _validate_run_args "$@"
         exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
         ;;
     "")
@@ -337,6 +705,7 @@ case "$CMD" in
         ;;
     *)
         # Anything unrecognised: forward straight to nextflow run
+        _validate_run_args "$@"
         exec "$NXF" run "$PIPELINE_DIR/main.nf" "$@"
         ;;
 esac
