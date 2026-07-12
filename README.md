@@ -164,8 +164,8 @@ Strainify runs the tools from your **active conda environment** (built once from
 ### Controlling resources
 
 ```bash
-# Cap to 8 CPUs and 64 GB RAM
-./strainify ... --max_cpus 8 --max_memory 64.GB
+# Cap to 8 CPUs
+./strainify ... --max_cpus 8
 ```
 
 ---
@@ -179,7 +179,7 @@ For step-by-step instructions using the example data, see:
 Run the test profile to verify your installation (from your activated environment):
 
 ```bash
-NXF_ANSI_LOG=false ./strainify -profile test
+./strainify -profile test
 ```
 
 ---
